@@ -1,0 +1,18 @@
+# Calibration block 1: first 100 clean train records (D-052, D-024).
+# Runs each condition with each approved seed (0, 1, 2), one run database per combination.
+# Run from src/:   python -m fenced_retry.cli run --config configs/train-block-01.toml
+
+[run]
+name = "pilot"
+envelope = "envelopes/receipt-extract-v1.json"
+data = "../data/cord"
+split = "train"
+offset = 0
+limit = 100
+conditions = ["controller", "single_shot", "naive_retry"]
+seeds = [0, 1, 2]
+project = "pilot"
+shadow = false
+store_full_text = true
+final = false
+runs_dir = "runs"

@@ -1,0 +1,21 @@
+# Stage temperatures (D-057). Executor temperature is NOT here: it is theta.temperature in
+# the approved envelope and changing it needs a new envelope version (D-046, ENVELOPE_CHANGE.md).
+# Runs that change any value below are exploratory and are labelled as such in the reports.
+# Stages not listed use theta.temperature (currently 0.3 in v2).
+#
+# v2 note: single_shot and naive_retry are intentionally unlisted so they inherit the
+# envelope's temperature (0.3). This gives a fair comparison: all conditions see the same
+# sampling temperature. The v1 runs (temp=0, explicit overrides below) are kept as comments
+# for reference.
+#
+# [single_shot]
+# temperature = 0.0   # v1 baseline
+#
+# [naive_retry]
+# temperature = 0.0   # v1 baseline
+
+[plan_compiler]
+temperature = 0.0   # reserved, not used in v1/v2
+
+[judge]
+temperature = 0.0   # reserved, not used in v1/v2

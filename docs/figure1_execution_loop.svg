@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 830" width="860" height="830" font-family="Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arrow1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#333"/>
+    </marker>
+  </defs>
+  <style>
+    .box{fill:#f4f6f8;stroke:#1a2530;stroke-width:1.2}
+    .dec{fill:#f0f7ff;stroke:#0056b3;stroke-width:1.2}
+    .bad{fill:#fff8f0;stroke:#c05621;stroke-width:1.2}
+    .ok{fill:#eef8f0;stroke:#2f7d32;stroke-width:1.2}
+    .t{font-size:13px;text-anchor:middle;fill:#1a2530}
+    .s{font-size:9px}
+    .e{fill:none;stroke:#333;stroke-width:1.3;marker-end:url(#arrow1)}
+    .l{font-size:12px;fill:#555;font-style:italic}
+  </style>
+
+  <!-- Entry and envelope check -->
+  <rect class="box" x="230" y="20" width="200" height="40" rx="6"/>
+  <text class="t" x="330" y="45">Task record</text>
+
+  <polygon class="dec" points="330,80 460,120 330,160 200,120"/>
+  <text class="t" x="330" y="116">Envelope signature</text>
+  <text class="t" x="330" y="133">and version valid?</text>
+
+  <rect class="bad" x="520" y="100" width="180" height="40" rx="6"/>
+  <text class="t" x="610" y="125">Halt batch and alert</text>
+
+  <!-- Execution -->
+  <rect class="box" x="180" y="190" width="300" height="56" rx="6"/>
+  <text class="t" x="330" y="213">Assemble prompt: I + D + plan S<tspan class="s" dy="4">i</tspan></text>
+  <text class="t" x="330" y="233">+ bounded ledger C<tspan class="s" dy="4">i</tspan></text>
+
+  <rect class="box" x="200" y="270" width="260" height="40" rx="6"/>
+  <text class="t" x="330" y="295">Stateless LLM execution</text>
+
+  <polygon class="dec" points="330,320 450,360 330,400 210,360"/>
+  <text class="t" x="330" y="365">Output validator V</text>
+
+  <rect class="ok" x="520" y="335" width="240" height="50" rx="6"/>
+  <text class="t" x="640" y="356">Accept; log prompt hash</text>
+  <text class="t" x="640" y="374">and output</text>
+
+  <!-- Failure path -->
+  <rect class="box" x="180" y="425" width="300" height="46" rx="6"/>
+  <text class="t" x="330" y="452">Failure signature and typed record</text>
+
+  <polygon class="dec" points="330,490 460,530 330,570 200,530"/>
+  <text class="t" x="330" y="527">Per-record fuse</text>
+  <text class="t" x="330" y="545">CB(i)</text>
+
+  <rect class="bad" x="520" y="505" width="200" height="50" rx="6"/>
+  <text class="t" x="620" y="535">Dead-letter queue</text>
+
+  <rect class="box" x="180" y="600" width="300" height="50" rx="6"/>
+  <text class="t" x="330" y="622">Ledger update: one directive per</text>
+  <text class="t" x="330" y="640">check, from template library</text>
+
+  <rect class="box" x="180" y="675" width="300" height="46" rx="6"/>
+  <text class="t" x="330" y="696">Plan compiler emits schema-valid</text>
+  <text class="t" x="330" y="714">S<tspan class="s" dy="4">i+1</tspan></text>
+
+  <polygon class="dec" points="330,730 460,770 330,810 200,770"/>
+  <text class="t" x="330" y="775">Envelope check on S<tspan class="s" dy="4">i+1</tspan></text>
+
+  <rect class="ok" x="520" y="600" width="200" height="46" rx="6"/>
+  <text class="t" x="620" y="620">Fallback: prior approved</text>
+  <text class="t" x="620" y="638">envelope or safe default</text>
+
+  <rect class="ok" x="520" y="678" width="200" height="46" rx="6"/>
+  <text class="t" x="620" y="698">Human review:</text>
+  <text class="t" x="620" y="716">exceptions and samples</text>
+
+  <!-- Edges -->
+  <path class="e" d="M330,60 V80"/>
+  <path class="e" d="M460,120 H520"/>
+  <text class="l" x="482" y="112">No</text>
+  <path class="e" d="M330,160 V190"/>
+  <text class="l" x="338" y="180">Yes</text>
+  <path class="e" d="M330,246 V270"/>
+  <path class="e" d="M330,310 V320"/>
+  <path class="e" d="M450,360 H520"/>
+  <text class="l" x="470" y="352">PASS</text>
+  <path class="e" d="M330,400 V425"/>
+  <text class="l" x="338" y="416">FAIL</text>
+  <path class="e" d="M330,471 V490"/>
+  <path class="e" d="M460,530 H520"/>
+  <text class="l" x="470" y="522">Open</text>
+  <path class="e" d="M330,570 V600"/>
+  <text class="l" x="338" y="590">Closed</text>
+  <path class="e" d="M330,650 V675"/>
+  <path class="e" d="M330,721 V730"/>
+  <path class="e" d="M200,770 H110 V218 H180"/>
+  <text class="l" x="116" y="760">Inside</text>
+  <path class="e" d="M460,770 H760 V530 H720"/>
+  <text class="l" x="600" y="760">Outside</text>
+  <path class="e" d="M620,555 V600"/>
+  <path class="e" d="M620,646 V678"/>
+  <text class="l" x="512" y="668" text-anchor="end">unresolved</text>
+</svg>

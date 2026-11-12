@@ -1,0 +1,18 @@
+# v3 block 1: first 100 clean train records, all three conditions, 3 seeds.
+# v3 envelope: num_predict=1024, strengthened menu+amount templates.
+# Run from src/:   python -m fenced_retry.cli run --config configs/v3-train-block-01.toml
+
+[run]
+name = "v3-pilot"
+envelope = "envelopes/receipt-extract-v3.json"
+data = "../data/cord"
+split = "train"
+offset = 0
+limit = 100
+conditions = ["controller", "single_shot", "naive_retry"]
+seeds = [0, 1, 2]
+project = "pilot-v3"
+shadow = false
+store_full_text = true
+final = false
+runs_dir = "runs"

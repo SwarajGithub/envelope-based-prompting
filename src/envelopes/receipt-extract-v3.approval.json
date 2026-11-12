@@ -1,0 +1,9 @@
+{
+  "envelope_id": "receipt-extract",
+  "version": "v3",
+  "envelope_file": "receipt-extract-v3.json",
+  "envelope_hash": "f35c4ef11fc3eac5a1251edd533540076e085a80c0a1419cd7469cf81a8356db",
+  "approver": "Swaraj Shekhar",
+  "approved_at_utc": "2026-11-03T00:10:00Z",
+  "note": "v3 fixes root causes from v2 block-1 dead-letter analysis: (1) num_predict raised 512->1024 to prevent JSON truncation on long menu lists (train-00065, 00103 PARSE_ERROR); (2) menu template now specifies LINE TOTAL (last printed number, not @unit_price); (3) all nine amount field templates now explicitly forbid copying the field label. No code changes; template and parameter changes only."
+}

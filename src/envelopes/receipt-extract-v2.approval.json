@@ -1,0 +1,9 @@
+{
+  "envelope_id": "receipt-extract",
+  "version": "v2",
+  "envelope_file": "receipt-extract-v2.json",
+  "envelope_hash": "23d1bd4711b4bb59d787fdf18062dfc3de835d064c1f558f44d3e82ffbd3643a",
+  "approver": "Swaraj Shekhar",
+  "approved_at_utc": "2026-11-03T01:35:25+00:00",
+  "note": "v2: qwen3-8k:latest on 192.168.0.13:11434, num_ctx 8192 (resolves D-012), temperature 0.3 (enables retry rescue experiments for H2). All other structure unchanged from v1."
+}

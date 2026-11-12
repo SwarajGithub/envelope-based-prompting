@@ -1,0 +1,15 @@
+# Assurance sampling protocol values (paper §7). These are evaluation-protocol settings,
+# not envelope settings: change them in the protocol before the test split, and state
+# any change in the run label.
+#
+# c >= ln(alpha) / ln(1 - eps_c) = ln(0.05) / ln(0.8) = 13.4, so c = 14 clusters per block.
+# j = 2 outputs reviewed per sampled cluster. rho is not estimated yet (Section 9.5).
+
+[sampling]
+alpha = 0.05
+eps_c = 0.2
+c = 14
+j = 2
+# Independent-sampling floor per block (paper §7): n >= ln(alpha)/ln(1-eps) = 14 for eps = 0.2.
+# A block gets at least this many reviews, topped up from its outputs when clusters are few (D-060).
+eps = 0.2

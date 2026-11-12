@@ -1,0 +1,18 @@
+# v2 calibration block 2: records 100-499 of clean train subset, controller only, seed 0.
+# Used to calibrate m from the signature-repeat histogram (PROTOCOL.md, M8).
+# Run from src/:   python -m fenced_retry.cli run --config configs/v2-train-block-02.toml
+
+[run]
+name = "v2-pilot"
+envelope = "envelopes/receipt-extract-v2.json"
+data = "../data/cord"
+split = "train"
+offset = 100
+limit = 400
+conditions = ["controller"]
+seeds = [0]
+project = "pilot-v2"
+shadow = false
+store_full_text = true
+final = false
+runs_dir = "runs"

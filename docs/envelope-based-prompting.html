@@ -1,0 +1,1119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Envelope-Bounded Retry with Typed Failure Ledgers</title>
+
+    <style>
+        :root {
+            --primary-color: #1a2530;
+            --accent-color: #0056b3;
+            --bg-color: #fcfcfc;
+            --text-color: #2b2b2b;
+            --border-color: #e2e8f0;
+            --code-bg: #f4f6f8;
+            --warning-bg: #fff8f0;
+            --warning-border: #ed8936;
+            --note-bg: #f0f7ff;
+        }
+
+        body {
+            font-family: 'Georgia', 'Times New Roman', serif;
+            line-height: 1.72;
+            color: var(--text-color);
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 2rem 1rem;
+        }
+
+        .paper-container {
+            max-width: 860px;
+            margin: 0 auto;
+            background: #ffffff;
+            padding: 3rem;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+            border-radius: 4px;
+        }
+
+        h1 {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            text-align: center;
+            margin-bottom: 0.75rem;
+            line-height: 1.25;
+        }
+
+        .author-block {
+            text-align: center;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin-bottom: 2.5rem;
+            color: #555;
+            font-size: 1.05rem;
+        }
+
+        .author-block a { color: var(--accent-color); text-decoration: none; font-weight: 500; }
+        .author-block a:hover { text-decoration: underline; }
+
+        .abstract {
+            background-color: #f8fafc;
+            border-left: 4px solid var(--accent-color);
+            padding: 1.25rem 1.5rem;
+            margin-bottom: 2.5rem;
+            border-radius: 0 4px 4px 0;
+        }
+
+        .abstract strong {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            letter-spacing: 0.05em;
+            color: var(--accent-color);
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+
+        h2, h3 {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            color: var(--primary-color);
+            margin-top: 2rem;
+        }
+
+        h2 { border-bottom: 1px solid var(--border-color); padding-bottom: 0.4rem; font-size: 1.45rem; }
+        h3 { font-size: 1.12rem; }
+
+        .formula-box {
+            background-color: var(--code-bg);
+            border: 1px solid var(--border-color);
+            padding: 1rem;
+            margin: 1.5rem 0;
+            border-radius: 4px;
+            overflow-x: auto;
+            text-align: center;
+        }
+
+        .diagram-container {
+            background-color: #ffffff;
+            border: 1px solid var(--border-color);
+            padding: 1.5rem;
+            margin: 2rem 0;
+            border-radius: 4px;
+            text-align: center;
+            overflow-x: auto;
+        }
+
+        .diagram-caption {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-size: 0.88rem;
+            color: #666;
+            margin-top: 0.75rem;
+        }
+
+        .note-card {
+            background-color: var(--note-bg);
+            border-left: 4px solid var(--accent-color);
+            padding: 1rem 1.25rem;
+            margin: 1.5rem 0;
+            border-radius: 0 4px 4px 0;
+        }
+
+        .limitation-card {
+            background-color: var(--warning-bg);
+            border-left: 4px solid var(--warning-border);
+            padding: 1rem 1.25rem;
+            margin: 1.5rem 0;
+            border-radius: 0 4px 4px 0;
+        }
+
+        .limitation-card strong,
+        .note-card strong {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            color: #c05621;
+            display: block;
+            margin-bottom: 0.25rem;
+        }
+
+        .note-card strong { color: var(--accent-color); }
+
+        code {
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+            background-color: var(--code-bg);
+            padding: 0.2em 0.4em;
+            font-size: 0.9em;
+            border-radius: 3px;
+        }
+
+        pre {
+            background-color: var(--code-bg);
+            padding: 1rem;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        pre code { background: none; padding: 0; }
+
+        @media print {
+            pre { white-space: pre-wrap; word-break: break-word; font-size: 0.72rem; overflow: visible; }
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-size: 0.92rem;
+        }
+
+        th, td { border: 1px solid var(--border-color); padding: 0.65rem; text-align: left; vertical-align: top; }
+        th { background-color: var(--code-bg); font-weight: 600; }
+
+        ol li, ul li { margin-bottom: 0.35rem; }
+
+        footer {
+            margin-top: 4rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border-color);
+            text-align: center;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-size: 0.85rem;
+            color: #777;
+        }
+
+        .math {
+            font-family: "Cambria Math", "Latin Modern Math", "Times New Roman", serif;
+            font-size: 1.1rem;
+            text-align: center;
+            line-height: 2.1;
+        }
+
+        .math i { font-style: italic; }
+
+        .fr { display: inline-block; vertical-align: middle; text-align: center; }
+        .fr > span { display: block; padding: 0 0.25em; }
+        .fr > span.n { border-bottom: 1px solid #222; }
+
+        .cases {
+            display: inline-block;
+            text-align: left;
+            border-left: 2px solid #222;
+            padding-left: 0.8em;
+            margin-left: 0.4em;
+            vertical-align: middle;
+        }
+
+        .cases div { line-height: 1.8; }
+
+        .diagram-svg svg { max-width: 100%; height: auto; }
+
+        @media (max-width: 720px) {
+            .paper-container { padding: 1.5rem; }
+            h1 { font-size: 1.6rem; }
+        }
+    </style>
+
+</head>
+<body>
+
+<div class="paper-container">
+    <header>
+        <h1>Envelope-Bounded Retry with Typed Failure Ledgers for Unattended LLM Pipelines</h1>
+        <div class="author-block">
+            <a href="https://www.linkedin.com/in/swaraj-shekhar" target="_blank" rel="noopener"><strong>Swaraj Shekhar</strong></a>
+        </div>
+    </header>
+
+    <div class="note-card">
+        <strong>In short</strong>
+        The problem: unattended LLM pipelines often need their prompt fixed mid-run, and a rewritten prompt is logic nobody has reviewed. The idea: the system may only choose among plans a human approved once per envelope version, and its feedback to itself is a short list of typed template messages rather than a growing transcript. What is claimed: three controller properties that hold by construction. What is not claimed: better output quality. This is an idea to build on, not a finished system or a tested method. Section 10.4 lists where others can contribute.
+    </div>
+
+    <div class="abstract">
+        <strong>Abstract</strong>
+        Unattended LLM pipelines fail in ways a person would normally fix by editing the prompt. If the system rewrites its own prompt, the rewrite is new logic that no one has reviewed. This paper restricts runtime behavior to choosing among plans that humans approve once per envelope version. Failures become typed, template-based directives, and a per-record fuse and a fleet-level breaker bound each record and each batch. The controller guarantees bounded prompt length, bounded termination, and containment of the plan, note, and invariant layers. These hold whatever the model does and say nothing about output quality. A pilot on receipt field extraction (CORD v1, 100 clean train records, qwen3-8k at temperature 0.3) confirms containment (H3) by construction; the controller's own prompt length is bounded (388 tokens at attempt 1, 506–653 at attempt 2), but the conversational retry baseline required by H1's definition was not run. All six dead-lettered records (6%) fail identically across three seeds on both attempts under envelope v2 — zero rescue events — revealing that retry effectiveness depends entirely on whether the failure-directive templates are specific enough to guide the model past the failure. Root-cause analysis of the six dead letters led directly to a revised envelope (v3); in v3 block 1 the controller accepted 100/100 records with 5–7 rescue events per seed, with 5 core records rescued in all three seeds. The sixth formerly dead-lettered record (train-00065) passes on attempt 1 in v3 because the increased output budget resolves truncation without retry. The v3 naive_retry baseline shows zero rescues on the core 5 systematic records in all seeds. The pilot provides evidence consistent with H2 (template specificity controls rescue effectiveness), but the formal ablation baselines (check-IDs-only vs. full-output directive) were not run, so H2 as defined is not confirmed. A McNemar exact test on the held-out test split (controller vs. naive_retry, 84 clean records) gives p = 0.0625–0.125 across seeds, borderline and not significant at α = 0.05. The validator accept rate (96.4% on test split) overstates field accuracy: reference-judge sampling found discrepancies in 14/14 sampled accepted records (Wilson 95% CI: [78.5%, 100%]), confirming that assurance sampling is necessary for any accuracy claim. Train-split reference-judge discrepancy rate was 78.6% (v2, Wilson 95% CI: [52.4%, 92.4%]) and 71.4% (v3, [45.4%, 88.3%]); human-review rate was 57.1% ([32.6%, 78.6%]).
+    </div>
+
+    <section>
+        <h2>1. Introduction</h2>
+        <p>Self-correction in LLM systems usually follows a conversational pattern such as Reflexion <a href="#ref-shinn">[1]</a>: the output, the error log, and a retry request are appended to the dialogue. This suits chat, where a person reads each turn. It fits poorly the systems this paper targets, which have three properties. The task is issued as a program-generated prompt, and the consumer of the output is code. The resident data payload <i>D</i> (documents, schemas, rule sets, retrieved passages) is large, often large enough that one raw failure trace can fill a significant part of the window. And no human is in the synchronous path: humans see records the system cannot resolve, and a sample of resolved ones, through an asynchronous queue.</p>
+
+        <p>In this regime, runtime prompt change is the central risk, because a rewritten prompt has not been reviewed in its final form. Three failure modes follow.
+            <p><strong>Context saturation:</strong> appended failure history consumes the budget that <i>D</i> needs, and each retry is longer than the last. <p><strong>Attention attenuation:</strong> long-context models are weakest on information placed mid-prompt <a href="#ref-liu">[2]</a>, so invariants go at the start and a reminder at the end. Recency override is a separate risk that this paper does not evaluate. <p><strong>Rogue revision:</strong> an unconstrained rewrite can override an invariant, drift from the task, or repeat a failing approach. Without a bound on what may change, the only safeguard is a human reviewing each rewritten prompt, which defeats unattended operation.</p>
+
+        <p>The paper's contributions are:
+            <p>(i) an approved envelope that bounds all runtime behavior to pre-approved plans and templates;
+        <p>(ii) a typed, deduplicated failure ledger whose size depends on the envelope, not on the number of attempts;
+        <p>(iii) a per-record fuse and a fleet-level breaker, with a termination argument for the controller;
+        <p>(iv) an oversight model that counts human effort per envelope version, exception, and sampled output; and
+        <p>(v) two-sided boundary enforcement, with input-side checks on plans and output-side validation of results. The termination and containment arguments are short because they follow from the controller's structure. Their value is that they hold regardless of model behavior, not that they are difficult to prove.</p>
+
+        <p>H2 and H4 are falsifiable hypotheses. H1 and H3 are checks of properties the design enforces. Section 9 specifies the tests.</p>
+        <ul>
+            <li><strong>H1 (prompt length, a baseline comparison).</strong> The length bound <i>L</i><sub>max</sub> of Section 5.1 holds by construction, so H1 concerns only the baseline: conversational retry's prompt length grows with each attempt, and the layered design's does not.</li>
+            <li><strong>H2 (invariant adherence).</strong> Adherence to invariants at the final attempt is higher under the layered design than under two baselines that differ in how much failure information they carry: one carries only check IDs and validator messages, the other the full failing output (Section 9.7 describes what these baselines require). H2 may be falsified: withholding failing output may reduce repair ability.</li>
+            <li><strong>H3 (containment, a conformance check).</strong> Every executed prompt lies inside the approved envelope. This is enforced and checked for each prompt, not estimated; it is a property to verify, not an outcome to measure.</li>
+            <li><strong>H4 (oversight load).</strong> On the test split, the fraction <i>h</i> of records needing human attention is below a target <i>h</i>*, fixed before the test split is used. No h* was established in this pilot; the observed oversight loads are reported in Section 9.3 and Section 9.7 describes what a formal H4 test would require.</li>
+        </ul>
+        <p><strong>Where this applies.</strong> The design suits tasks where a validator can decide pass or fail deterministically, the output is consumed by code, the data payload is large, and records can wait for an occasional human. It fits poorly where the check is a judgment only people can make, where each record needs a conversational exchange, or where an envelope cannot be written for the task family in advance. Envelope authoring is the main cost (L1).</p>
+    </section>
+
+    <section>
+        <h2>2. Related Work and Gap</h2>
+        <p>The table summarizes the closest lines of work. Each is strong on one axis and absent on others this architecture needs together. The search covered constrained decoding, workflow orchestration, and policy-as-code engines, using keyword queries over arXiv and the web. It was not exhaustive, and the gap claim is limited to what it found.</p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Line of work</th>
+                    <th>What it provides</th>
+                    <th>What it lacks for unattended, large-context pipelines</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Reflexion <a href="#ref-shinn">[1]</a>, Self-Refine <a href="#ref-madaan">[3]</a></td>
+                    <td>Learning from feedback through verbal self-reflection</td>
+                    <td>Failure memory is a growing transcript; no formal stop condition; no separation of invariants from strategy.</td>
+                </tr>
+                <tr>
+                    <td>ReAct <a href="#ref-yao">[4]</a>, Tree of Thoughts <a href="#ref-tot">[5]</a></td>
+                    <td>Explicit reasoning and search over branches</td>
+                    <td>Search breadth is a heuristic; no drift measure; built for interactive or search settings.</td>
+                </tr>
+                <tr>
+                    <td>DSPy <a href="#ref-dspy">[6]</a>, PromptBreeder <a href="#ref-promptbreeder">[7]</a></td>
+                    <td>Automatic prompt optimization against a metric</td>
+                    <td>Optimizes offline or across generations; does not run a live, bounded fallback loop per record.</td>
+                </tr>
+                <tr>
+                    <td>DSPy Assertions <a href="#ref-assertions">[8]</a></td>
+                    <td>Per-record check against a predicate, with retry and a stop after a limit</td>
+                    <td>Appends the failing output to the retry prompt; no declared graph, bounded ledger, or signed envelope; no human-approval model.</td>
+                </tr>
+                <tr>
+                    <td>Circuit breaker pattern <a href="#ref-fowler">[9]</a></td>
+                    <td>Stop calls to a failing dependency; half-open probing</td>
+                    <td>Counts failures; does not model semantic repetition, structural drift of a prompt, or approval of runtime-generated logic.</td>
+                </tr>
+                <tr>
+                    <td>Constrained decoding: Outlines <a href="#ref-outlines">[10]</a>, LMQL <a href="#ref-lmql">[11]</a>, XGrammar <a href="#ref-xgrammar">[12]</a></td>
+                    <td>Syntactically valid output by construction, from a grammar or schema</td>
+                    <td>Guarantees syntax; semantic effects are task-dependent and not guaranteed; no retry, ledger, or approval model.</td>
+                </tr>
+                <tr>
+                    <td>Agent graph execution: SGH <a href="#ref-sgh">[13]</a>, Bounded Loops <a href="#ref-bounded">[14]</a></td>
+                    <td>Explicit static graphs with immutable plan versions, retry budgets, absorbing terminal states, and a gate the worker cannot write to</td>
+                    <td>The abstracts reviewed do not address prompt-content containment, typed failure memory, or approval of plan versions by reviewers. SGH is a design proposal without empirical results.</td>
+                </tr>
+                <tr>
+                    <td>Policy engines: Open Policy Agent <a href="#ref-opa">[15]</a>, Cedar <a href="#ref-cedar">[16]</a></td>
+                    <td>Deny-by-default checks of each tool call before execution</td>
+                    <td>Check authorization of actions, not the structure of multi-attempt retry, failure memory, or prompt content.</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <p>Prompt-injection defenses target a different threat from retry dynamics. Instruction hierarchies [17], structured queries [18], and spotlighting [19] are discussed in Section 6.2 as inputs to the boundary design. Guardrail classifiers are discussed in Section 8.</p>
+
+        <div class="note-card">
+            <strong>Gap addressed</strong>
+            Per-record retry against a validator exists (DSPy Assertions [8]). Constrained decoding guarantees schema validity but does not guarantee semantic correctness [20]. Bounded memory of feedback has been studied as a rewritten natural-language state [21]. Human review of agent actions exists in interactive tools [22]. Graph-based work gives explicit graphs, retry budgets, and absorbing terminal states [13], [14], and policy engines check tool calls before they run [15], [16]. The distinct elements of this paper are
+            <p>(a) a separation of immutable and mutable prompt parts;
+                <p>(b) a bounded failure memory that is typed, indexed by template group, and never written by a model;
+            <p>(c) a termination rule combining attempt limits, failure-signature and plan repetition, and envelope membership; and
+            <p>(d) approval once per envelope version, rather than review of each plan. Element (c) is the narrowest, since the graph papers already provide budgets and absorbing states.
+        </div>
+    </section>
+
+    <section>
+        <h2>3. Design Principles and Assumptions</h2>
+        <p>Five commitments shape the design in Section 4. Invariants and allowed structure are stored as checkable objects (schemas, rule IDs, step IDs), with natural language used only where it cannot be formalized. Failures are compiled into directives chosen from a fixed template library, never into transcripts. Deterministic validators decide pass or fail. Every loop has attempt and time limits, so termination does not depend on the model stopping. Humans approve the set of allowed structures once per version and handle exceptions and samples; no runtime prompt waits for individual approval. Terms that change behaviour are defined in Appendix B.</p>
+
+        <h3>3.1 Assumptions</h3>
+        <p>The guarantees in Section 5 hold under the following assumptions. Each is a property the deployment must check before a run.</p>
+        <ol>
+            <li><strong>A1. Window.</strong> The context window holds every block of <i>Ψ</i><sub><i>i</i></sub> at its envelope cap, so <i>L</i><sub>max</sub> fits. A record whose <i>D</i> exceeds <i>D</i><sub>max</sub> is rejected at intake, before any model call, and is logged as a rejection, not a dead letter.</li>
+            <li><strong>A2. Templates.</strong> Every validator check ID maps to exactly one directive group in <i>T</i>.</li>
+            <li><strong>A3. Satisfiable envelope.</strong> At least one plan in <i>P</i><sub>approved</sub> passes the approval lint (Section 5.3). The drift threshold satisfies θ<sub>drift</sub> ∈ [0, 1], and the repetition limit satisfies <i>m</i> ≥ 1.</li>
+            <li><strong>A4. Fallback menu.</strong> The fallback menu is finite, with <i>K</i> items, each tried at most once per record (Section 5.5).</li>
+            <li><strong>A5. Sandbox.</strong> Generated SQL and code run only in a sandbox with no network access and no write access to production state.</li>
+            <li><strong>A6. Side effects.</strong> External writes happen only after acceptance and are keyed by record ID. The first accepted result is written; later accepted results, including fallback results, are logged and not written.</li>
+            <li><strong>A7. Pinned versions.</strong> The executor, judge, and plan compiler are each pinned to a version recorded in the envelope. Changing any of them, including switching to a different model, is an envelope change requiring approval.</li>
+            <li><strong>A8. Validator scope.</strong> The validator covers the checks in <i>T</i>. Failures outside its coverage are seen by the fuse and breaker only through assurance sampling, and only to the extent sampling detects them (Section 7).</li>
+            <li><strong>A9. Review capacity.</strong> Reviewers clear the dead-letter queue within a review delay target fixed in the envelope, measured from dead-lettering to resolution. Otherwise records wait, and the delay is reported.</li>
+            <li><strong>A10. Initial plan.</strong> The first plan <i>S</i><sub>1</sub> is a designated member of <i>P</i><sub>approved</sub> named in the envelope.</li>
+            <li><strong>A11. Failure class.</strong> The failure class of a record is the directive group of its failing check. No separate classifier is used.</li>
+            <li><strong>A12. Judge scope.</strong> An LLM judge, if used, runs only on sampled accepted outputs, offline. It never runs in the per-record loop and never changes pass or fail.</li>
+            <li><strong>A13. Call timeout.</strong> Every executor, plan-compiler, and fallback call has a timeout set in the envelope. A call that times out counts as a failed attempt. Termination depends on this assumption, since the elapsed-time check runs only between calls.</li>
+        </ol>
+    </section>
+
+    <section>
+        <h2>4. Architecture</h2>
+        <p>Figure 1 shows the per-record loop. Records are processed independently, and a fleet-level supervisor (Section 5.5) watches the stream of outcomes.</p>
+
+        <div class="diagram-container">
+            <div class="diagram-svg"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 830" width="860" height="830" font-family="Helvetica, Arial, sans-serif" role="img" aria-label="Per-record execution loop">
+  <defs>
+    <marker id="arrow1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#333"/>
+    </marker>
+  </defs>
+  <style>
+    .box{fill:#f4f6f8;stroke:#1a2530;stroke-width:1.2}
+    .dec{fill:#f0f7ff;stroke:#0056b3;stroke-width:1.2}
+    .bad{fill:#fff8f0;stroke:#c05621;stroke-width:1.2}
+    .ok{fill:#eef8f0;stroke:#2f7d32;stroke-width:1.2}
+    .t{font-size:13px;text-anchor:middle;fill:#1a2530}
+    .s{font-size:9px}
+    .e{fill:none;stroke:#333;stroke-width:1.3;marker-end:url(#arrow1)}
+    .l{font-size:12px;fill:#555;font-style:italic}
+  </style>
+  <rect class="box" x="230" y="20" width="200" height="40" rx="6"/>
+  <text class="t" x="330" y="45">Task record</text>
+  <rect class="bad" x="520" y="20" width="300" height="40" rx="6"/>
+  <text class="t" x="670" y="45">Intake reject: |D| &gt; D_max (logged)</text>
+  <path class="e" d="M430,40 H520"/>
+  <text class="l" x="440" y="34">too large</text>
+  <polygon class="dec" points="330,80 460,120 330,160 200,120"/>
+  <text class="t" x="330" y="116">Envelope signature</text>
+  <text class="t" x="330" y="133">and version valid?</text>
+  <rect class="bad" x="520" y="100" width="180" height="40" rx="6"/>
+  <text class="t" x="610" y="125">Halt batch and alert</text>
+  <rect class="box" x="180" y="190" width="300" height="56" rx="6"/>
+  <text class="t" x="330" y="213">Assemble: I, D, Q, R, plan S<tspan class="s" dy="4">i</tspan></text>
+  <text class="t" x="330" y="233">+ ledger C<tspan class="s" dy="4">i</tspan>, length-checked</text>
+  <rect class="box" x="200" y="270" width="260" height="40" rx="6"/>
+  <text class="t" x="330" y="295">Stateless LLM execution</text>
+  <polygon class="dec" points="330,320 450,360 330,400 210,360"/>
+  <text class="t" x="330" y="365">Output validator V</text>
+  <rect class="ok" x="520" y="335" width="240" height="50" rx="6"/>
+  <text class="t" x="640" y="356">Accept; log prompt hash</text>
+  <text class="t" x="640" y="374">and output</text>
+  <rect class="box" x="180" y="425" width="300" height="46" rx="6"/>
+  <text class="t" x="330" y="452">Failure signature and typed record</text>
+  <polygon class="dec" points="330,490 460,530 330,570 200,530"/>
+  <text class="t" x="330" y="527">Per-record fuse</text>
+  <text class="t" x="330" y="545">CB(i)</text>
+  <rect class="box" x="520" y="505" width="200" height="50" rx="6"/>
+  <text class="t" x="620" y="525">Fallback menu (≤ K calls)</text>
+  <text class="t" x="620" y="543">prior envelope or safe default</text>
+  <rect class="box" x="180" y="600" width="300" height="50" rx="6"/>
+  <text class="t" x="330" y="622">Ledger update: one directive per</text>
+  <text class="t" x="330" y="640">directive group, from template library</text>
+  <rect class="box" x="180" y="675" width="300" height="46" rx="6"/>
+  <text class="t" x="330" y="696">Plan compiler emits schema-valid</text>
+  <text class="t" x="330" y="714">S<tspan class="s" dy="4">i+1</tspan></text>
+  <polygon class="dec" points="330,730 460,770 330,810 200,770"/>
+  <text class="t" x="330" y="775">Envelope check on S<tspan class="s" dy="4">i+1</tspan></text>
+  <rect class="bad" x="520" y="600" width="200" height="46" rx="6"/>
+  <text class="t" x="620" y="620">Dead-letter queue</text>
+  <text class="t" x="620" y="638">awaiting human review</text>
+  <rect class="ok" x="520" y="678" width="200" height="46" rx="6"/>
+  <text class="t" x="620" y="698">Human review:</text>
+  <text class="t" x="620" y="716">exceptions and samples</text>
+  <path class="e" d="M330,60 V80"/>
+  <path class="e" d="M460,120 H520"/>
+  <text class="l" x="482" y="112">No</text>
+  <path class="e" d="M330,160 V190"/>
+  <text class="l" x="338" y="180">Yes</text>
+  <path class="e" d="M330,246 V270"/>
+  <path class="e" d="M330,310 V320"/>
+  <path class="e" d="M450,360 H520"/>
+  <text class="l" x="470" y="352">PASS</text>
+  <path class="e" d="M330,400 V425"/>
+  <text class="l" x="338" y="416">FAIL</text>
+  <path class="e" d="M330,471 V490"/>
+  <path class="e" d="M460,530 H520"/>
+  <text class="l" x="470" y="522">Open</text>
+  <path class="e" d="M680,505 V385"/>
+  <text class="l" x="688" y="450">fallback passes</text>
+  <path class="e" d="M330,570 V600"/>
+  <text class="l" x="338" y="590">Closed</text>
+  <path class="e" d="M330,650 V675"/>
+  <path class="e" d="M330,721 V730"/>
+  <path class="e" d="M200,770 H110 V218 H180"/>
+  <text class="l" x="116" y="760">Inside</text>
+  <path class="e" d="M460,770 H760 V530 H720"/>
+  <text class="l" x="600" y="760">Outside</text>
+  <path class="e" d="M620,555 V600"/>
+  <text class="l" x="628" y="580">menu exhausted</text>
+  <path class="e" d="M620,646 V678"/>
+  <text class="l" x="512" y="668" text-anchor="end">unresolved</text>
+</svg></div>
+            <div class="diagram-caption">Figure 1: Per-record execution loop. Every prompt is assembled from the approved envelope. Failures become typed records and template-based directives. An open fuse triggers the fallback menu, at most K calls, one per item. A fallback that passes is accepted. A record that still fails is dead-lettered for human review. Oversize records are rejected at intake. Symbols are defined in the text.</div>
+        </div>
+
+        <h3>4.1 Components</h3>
+        <ul>
+            <li><strong>Invariant layer <i>I</i>.</strong> Output schema, hard rules, security guardrails, and a compact checklist of critical rules. Part of the envelope; never produced by the compiler.</li>
+            <li><strong>Declared step graph <i>G</i><sub>0</sub>.</strong> A finite set of step IDs <i>V</i><sub>0</sub>, a precedence relation <i>E</i><sub>0</sub>, and a mandatory subset <i>M</i> ⊆ <i>V</i><sub>0</sub>, stating the allowed structure of execution for the task family.</li>
+            <li><strong>Data payload <i>D</i>.</strong> Byte-identical across attempts, so every attempt sees the same data and audits can reproduce it. Wrapped in tags and treated as data, never instructions (Section 6.2). Not tested against an adversarial injection set in this pilot.</li>
+            <li><strong>Strategy <i>S</i><sub><i>i</i></sub> = (<i>P</i><sub><i>i</i></sub>, <i>x</i><sub><i>i</i></sub>).</strong> <i>P</i><sub><i>i</i></sub> is a plan drawn from <i>P</i><sub>approved</sub>, a schema-constrained object whose steps are IDs from <i>V</i><sub>0</sub> or flagged extensions. <i>x</i><sub><i>i</i></sub> is a note of at most <i>s</i><sub>max</sub> tokens, built only from directive template text.</li>
+            <li><strong>Ledger <i>C</i><sub><i>i</i></sub>.</strong> Active directives derived from failures (Section 4.3).</li>
+            <li><strong>Validator <i>V</i>.</strong> Produces pass or fail and the set of failing check IDs <i>F</i><sub><i>i</i></sub>.</li>
+            <li><strong>Plan compiler.</strong> Maps (<i>S</i><sub><i>i</i></sub>, <i>C</i><sub><i>i</i></sub>, <i>F</i><sub><i>i</i></sub>) to <i>S</i><sub><i>i</i>+1</sub> by choosing one plan from <i>P</i><sub>approved</sub>. It can be a deterministic policy over failure groups or an LLM call that sees only the ledger, failure signature, current plan, and template IDs. It never sees <i>D</i> or the raw output and cannot change the envelope.</li>
+        </ul>
+
+        <h3>4.2 Prompt Layout</h3>
+        <p>Stable parts come first and mutable parts last. The system role carries the invariants <i>I</i>. The user message carries <i>D</i>, the task <i>Q</i>, the ledger, the plan, the note, and a short reminder <i>R</i> of the critical invariants, which sits near the end where attention is strongest. Within one envelope version, the stable prefix is identical on every attempt of a record, which also makes it cache-friendly; a fallback under another version uses that version's invariant block; prompt-caching cost comparison was not measured in this pilot. Appendix A.3 shows a complete instance.</p>
+
+        <h3>4.3 Failure Ledger</h3>
+        <ul>
+            <li><strong>Typed record.</strong> <i>f</i><sub><i>i</i></sub> = (attempt, <i>F</i><sub><i>i</i></sub>, group, evidence-ref). The evidence reference points to a stored artifact, not to a copy inside the prompt.</li>
+            <li><strong>Template directives.</strong> Each directive is drawn from the template library <i>T</i>, indexed by directive group. The compiler selects a template and one value from its declared parameter set. It never writes free-form directives. A note has the same form: a template ID with a declared parameter value.</li>
+            <li><strong>One directive per group.</strong> Each check maps to exactly one group (A2), and the ledger holds at most one active directive per group. A new failure in a group replaces the old directive. Two directives for one group cannot coexist. Directives in different groups can still conflict (Section 10.2, Q3). A directive stays active until its group is replaced by a new failure or the record reaches a terminal state, even after the check it addresses passes. A satisfied directive therefore costs length and can over-constrain; whether to drop it on pass is an open choice.</li>
+            <li><strong>Bounded size.</strong> |<i>C</i><sub><i>i</i></sub>| ≤ <i>G</i> · <i>ℓ</i><sub>max</sub>, where <i>G</i> is the number of directive groups fixed in the envelope and <i>ℓ</i><sub>max</sub> the directive length cap in tokens. The bound depends on the envelope, not on the number of attempts.</li>
+        </ul>
+
+        <h3>4.4 Envelope and Governance</h3>
+        <p>The envelope <i>𝓔</i> = (<i>I</i>, <i>G</i><sub>0</sub>, <i>P</i><sub>approved</sub>, <i>T</i>, Θ, length bounds) is what humans approve. <i>P</i><sub>approved</sub> is the finite list of approved plans, <i>T</i> the directive template library, and Θ the thresholds. The following rules govern it.</p>
+        <ul>
+            <li><strong>Versioned and signed.</strong> Each version is serialized canonically, hashed, and signed. The runtime verifies the signature at the start of a batch and for each record. A mismatch halts execution.</li>
+            <li><strong>Two-person approval.</strong> A new version needs sign-off from two designated reviewers.</li>
+            <li><strong>Separation of duties.</strong> The plan compiler and executor read the envelope and cannot write it.</li>
+            <li><strong>Shadow before live.</strong> A new strategy family or threshold runs on a sample of records in shadow mode, with outputs logged but not returned, before it is enabled.</li>
+            <li><strong>Approval lint.</strong> Before signing, every plan in <i>P</i><sub>approved</sub> is checked against the declared graph (Section 5.3). Drift is therefore measured at approval, not at runtime.</li>
+            <li><strong>Pause and rollback.</strong> When the fleet breaker opens, the batch pauses. While paused, the batch processes no records. Resuming under the same or the last approved envelope version, and moving to any newer version, each require a recorded human decision.</li>
+            <li><strong>Reproducible audit.</strong> Each executed prompt is stored by hash with the envelope version, record ID, and attempt index, so any executed prompt can be regenerated.</li>
+        </ul>
+    </section>
+
+    <section>
+        <h2>5. Formalization</h2>
+
+        <h3>5.1 State and Prompt Bound</h3>
+        <p>The prompt at attempt <i>i</i> is the tuple below, where <i>Q</i> is the fixed task string and <i>R</i> the invariant reminder.</p>
+        <div class="formula-box">
+            <div class="math"><i>Ψ</i><sub><i>i</i></sub> = (<i>I</i>, <i>D</i>, <i>S</i><sub><i>i</i></sub>, <i>C</i><sub><i>i</i></sub>, <i>Q</i>, <i>R</i>)</div>
+        </div>
+        <p>Each block has a token cap fixed in the envelope, so the length is bounded as</p>
+        <div class="formula-box">
+            <div class="math">|<i>Ψ</i><sub><i>i</i></sub>| ≤ <i>I</i><sub>max</sub> + <i>D</i><sub>max</sub> + <i>P</i><sub>max</sub> + <i>s</i><sub>max</sub> + <i>Q</i><sub>max</sub> + <i>R</i><sub>max</sub> + <i>G</i> <i>ℓ</i><sub>max</sub> = <i>L</i><sub>max</sub></div>
+        </div>
+        <p>The total is independent of the attempt index. The assembler checks the bound before sending; a prompt that exceeds it is not sent, and the fuse opens (Section 5.4). Records with <i>D</i> above <i>D</i><sub>max</sub> are rejected at intake (A1).</p>
+
+        <h3>5.2 Two-Sided Boundary Enforcement</h3>
+        <ul>
+            <li><strong>Input-side envelope check.</strong> Env(<i>S</i><sub><i>i</i></sub>, 𝓔) = 1 only if the plan is in <i>P</i><sub>approved</sub>, satisfies the hard constraints of Section 5.3, and the note <i>x</i><sub><i>i</i></sub> is an instance of a template in <i>T</i>. It uses no model: each factor is a lookup. It guards against a compiler fault or a mutated strategy.</li>
+            <li><strong>Output-side validator.</strong> <i>V</i>(<i>y</i><sub><i>i</i></sub>, <i>I</i>) → (pass, <i>F</i><sub><i>i</i></sub>) checks the output against the checks in <i>T</i>. Output correctness is guaranteed only to the extent those checks cover it (A8). Env cannot substitute for <i>V</i>.</li>
+        </ul>
+        <p>Invariants that cannot be written as lookups are enforced by <i>V</i>.</p>
+
+        <h3>5.3 Structural Constraints and Approval Lint</h3>
+        <p>Drift is measured between the declared graph <i>G</i><sub>0</sub> = (<i>V</i><sub>0</sub>, <i>E</i><sub>0</sub>) and a plan <i>P</i> = (<i>V</i>, <i>E</i>). Both are discrete objects; no graph is extracted from natural language. A malformed plan is rejected as a failure, because the compiler emits plans under a schema.</p>
+        <p>Two hard constraints apply to every plan. <strong>Mandatory steps:</strong> <i>M</i> ⊆ <i>V</i>. <strong>Precedence:</strong> for every (<i>u</i>, <i>v</i>) ∈ <i>E</i><sub>0</sub> with <i>u</i>, <i>v</i> ∈ <i>V</i>, the plan orders <i>u</i> before <i>v</i>.</p>
+        <p>Similarity is the Jaccard index over step IDs, computed once per plan at approval:</p>
+        <div class="formula-box">
+            <div class="math"><i>J</i><sub>struct</sub>(<i>G</i><sub>0</sub>, <i>P</i>) = <span class="fr"><span class="n">|<i>V</i> ∩ <i>V</i><sub>0</sub>|</span><span>|<i>V</i> ∪ <i>V</i><sub>0</sub>|</span></span></div>
+        </div>
+        <p>Steps in <i>V</i> ∖ <i>V</i><sub>0</sub> are extensions. They must be flagged, and each reduces <i>J</i><sub>struct</sub>. A plan is signed into <i>P</i><sub>approved</sub> only if it satisfies both hard constraints and <i>J</i><sub>struct</sub> ≥ θ<sub>drift</sub>. At runtime the compiler selects only signed plans, so drift is a property of the approved list. Which list to approve is open (Section 10.2, Q2).</p>
+
+        <div class="diagram-container">
+            <div class="diagram-svg"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 350" width="800" height="350" font-family="Helvetica, Arial, sans-serif" role="img" aria-label="Worked drift example">
+  <defs>
+    <marker id="arrow2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#333"/>
+    </marker>
+  </defs>
+  <style>
+    .box{fill:#f4f6f8;stroke:#1a2530;stroke-width:1.2}
+    .mand{fill:#eaf2fb;stroke:#0056b3;stroke-width:2}
+    .ext{fill:#fff8f0;stroke:#c05621;stroke-width:1.5;stroke-dasharray:6 4}
+    .t{font-size:13px;text-anchor:middle;fill:#1a2530}
+    .h{font-size:14px;font-weight:bold;fill:#1a2530}
+    .s{font-size:9px}
+    .e{fill:none;stroke:#333;stroke-width:1.3;marker-end:url(#arrow2)}
+    .m{fill:none;stroke:#888;stroke-width:1.3;stroke-dasharray:4 4}
+    .warn{font-size:13px;fill:#c05621}
+    .l{font-size:12px;fill:#555;font-style:italic}
+  </style>
+  <text class="h" x="60" y="40">Declared graph G<tspan class="s" dy="4">0</tspan></text>
+  <rect class="box" x="60" y="50" width="150" height="44" rx="6"/>
+  <text class="t" x="135" y="77">parse</text>
+  <rect class="mand" x="250" y="50" width="150" height="44" rx="6"/>
+  <text class="t" x="325" y="77">validate (mandatory)</text>
+  <rect class="box" x="440" y="50" width="150" height="44" rx="6"/>
+  <text class="t" x="515" y="77">transform</text>
+  <rect class="mand" x="630" y="50" width="150" height="44" rx="6"/>
+  <text class="t" x="705" y="77">write (mandatory)</text>
+  <path class="e" d="M210,72 H250"/>
+  <path class="e" d="M400,72 H440"/>
+  <path class="e" d="M590,72 H630"/>
+  <text class="h" x="60" y="170">Emitted plan P<tspan class="s" dy="4">i</tspan></text>
+  <rect class="box" x="60" y="180" width="150" height="44" rx="6"/>
+  <text class="t" x="135" y="207">parse</text>
+  <rect class="ext" x="250" y="180" width="150" height="44" rx="6"/>
+  <text class="t" x="325" y="207">retry (extension)</text>
+  <rect class="box" x="440" y="180" width="150" height="44" rx="6"/>
+  <text class="t" x="515" y="207">write</text>
+  <path class="e" d="M210,202 H250"/>
+  <path class="e" d="M400,202 H440"/>
+  <path class="m" d="M135,94 V180"/>
+  <path class="m" d="M705,94 L515,180"/>
+  <text class="l" x="330" y="132" text-anchor="middle">matched steps: parse, write</text>
+  <text class="warn" x="60" y="262">validate (mandatory) is absent: approval lint rejects this plan</text>
+  <text class="l" x="60" y="290">Blue: mandatory step. Dashed orange: extension. Dashed grey: matched step.</text>
+  <text x="60" y="318" font-size="15" fill="#1a2530">J<tspan class="s" dy="4">struct</tspan><tspan dy="-4"> = |V</tspan><tspan class="s" dy="4">i</tspan><tspan dy="-4"> ∩ V</tspan><tspan class="s" dy="4">0</tspan><tspan dy="-4">| / |V</tspan><tspan class="s" dy="4">i</tspan><tspan dy="-4"> ∪ V</tspan><tspan class="s" dy="4">0</tspan><tspan dy="-4">|</tspan></text>
+</svg></div>
+            <div class="diagram-caption">Figure 2: Worked drift example. The plan drops the mandatory validation step and adds an extension, retry. Here <i>J</i><sub>struct</sub> = |<i>V</i> ∩ <i>V</i><sub>0</sub>| / |<i>V</i> ∪ <i>V</i><sub>0</sub>|, with the matched steps parse and write. The mandatory-step constraint also fails, so the approval lint rejects the plan.</div>
+        </div>
+
+        <div class="note-card">
+            <strong>Why a declared graph</strong>
+            Extracting graphs from free text makes the drift measure depend on extraction noise. Requiring declared step IDs makes it exact and reproducible. The cost is that the graph must be authored per task family, which is part of envelope approval.
+        </div>
+
+        <h3>5.4 Repetition and the Per-Record Fuse</h3>
+        <p>Two repetition signals are checked at fixed points in the loop, both on the record's own history. The <i>failure signature</i> σ = hash(sort(<i>F</i>)) is computed from the set of failing check IDs after each failure. It captures repeated check-level failures; it does not compare wording. The <i>plan repeat count</i> <i>r</i><sub><i>i</i></sub> is computed for the candidate plan of attempt <i>i</i> before that attempt runs: it counts the earlier attempts in the record that used the same plan. Plans come from a finite list, so the comparison is exact. Plans that recur, including cycles such as A → B → A, are blocked by the count only once a plan has been used <i>m</i> times before. The smallest setting of <i>m</i> blocks any repeat; larger settings allow cycles to recur up to the attempt limit.</p>
+        <p>The per-record fuse is tested before each attempt, on the plan compiled for that attempt. Figure 1 draws it earlier for brevity, since the envelope tier needs the compiled plan. The fuse is the OR of three tiers, with <i>N</i><sub>max</sub> and <i>t</i><sub>max</sub> the attempt and wall-clock limits and <i>m</i> the repetition count that trips the tier. <i>CB</i>(<i>i</i>) = 1 ("open") when attempt <i>i</i> is about to run, or when the failure that preceded it has just been recorded.</p>
+        <div class="formula-box">
+            <div class="math"><i>CB</i>(<i>i</i>) = <span class="cases">
+                <div>1 if <i>i</i> &gt; <i>N</i><sub>max</sub>, or the elapsed time exceeds <i>t</i><sub>max</sub> (limit tier)</div>
+                <div>1 if the failure count for the current signature σ is at least <i>m</i>, or <i>r</i><sub><i>i</i></sub> ≥ <i>m</i> (repetition tier)</div>
+                <div>1 if Env(<i>S</i><sub><i>i</i></sub>, 𝓔) = 0, or the assembled prompt exceeds the caps of Section 5.1 (envelope tier)</div>
+                <div>0 (closed) otherwise</div>
+            </span></div>
+        </div>
+        <p>The elapsed-time check runs before every call, including fallback calls, and each call is bounded by the timeout of A13. Because the attempt limit is finite, the repetition tier acts only on the attempts it can still affect: a failure signature whose count reaches <i>m</i> stops the record at once, and a plan already used <i>m</i> times is not run again. The setting of <i>m</i> = 2 is used throughout; experimental calibration of <i>m</i> was not performed in this pilot (Section 9.7).</p>
+        <p>The fuse is a fuse, not a circuit breaker: once open, it stays open for the record, and no half-open probing is defined. When it opens, the record leaves the main loop and enters the fallback menu (Section 5.5). If the fallback menu is exhausted, the record is dead-lettered for human review. Fallback calls are outside the main loop. Only the elapsed-time tier and the length check of Section 5.1 apply to them. The attempt-index and repetition tiers do not, since fallback calls are not attempts and each item runs once (A4).</p>
+
+        <h3>5.5 Fallback, Fleet-Level Breaker, and Termination</h3>
+        <p><strong>Fallback.</strong> The fallback menu has <i>K</i> items, tried in order: a prior approved envelope version (one executor call under that version) or a deterministic default (no model call). Each item is tried at most once per record. A fallback that passes validation is accepted. A fallback that fails moves the record to the next item. When the menu is exhausted, the record goes to the dead-letter queue. Fallback never re-enters the main loop, so a record makes at most <i>K</i> fallback calls.</p>
+
+        <p><strong>Fleet breaker.</strong> Per-record fuses handle hard individual records. A systemic problem, such as a faulty template or a changed upstream schema, appears as a rising dead-letter rate or as silent failures in sampled outputs. These two signals use different windows. Let <i>y</i><sub><i>r</i></sub> ∈ {0, 1} indicate whether record <i>r</i> was dead-lettered, over a sliding dead-letter window <i>W</i><sub>d</sub>. The silent-failure signal is read from an assurance window <i>W</i><sub>a</sub> of accepted outputs, sampled with the cluster design of Section 7. Let φ be the dead-letter fraction that trips the breaker, and φ<sub>s</sub> the silent-failure rate over the window that trips it.</p>
+        <div class="formula-box">
+            <div class="math"><i>CB</i><sub>fleet</sub>(<i>t</i>) = <span class="cases">
+                <div>1 (pause batch and alert) if <span class="fr"><span class="n">1</span><span><i>W</i><sub>d</sub></span></span> Σ<sub><i>r</i> ∈ <i>W</i><sub>d</sub>(<i>t</i>)</sub> <i>y</i><sub><i>r</i></sub> &gt; <i>φ</i>, or</div>
+                <div>the lower confidence bound at level γ on the silent-failure rate in <i>W</i><sub>a</sub>(<i>t</i>) exceeds <i>φ</i><sub>s</sub></div>
+                <div>0 otherwise</div>
+            </span></div>
+        </div>
+        <p>Using the lower confidence bound, rather than the point estimate, avoids pausing on sampling noise. The breaker pauses the batch rather than probing half-open, and resumption requires a human decision.</p>
+
+        <p><strong>Proposition (termination of the controller).</strong> Under A3 and A4, with finite <i>N</i><sub>max</sub>, <i>t</i><sub>max</sub>, and fallback menu size <i>K</i>, every record ends in acceptance or in the dead-letter queue. The number of model calls per record is at most 2<i>N</i><sub>max</sub> + <i>K</i>: at most <i>N</i><sub>max</sub> main-loop executor calls, at most <i>N</i><sub>max</sub> plan-compiler calls, and at most <i>K</i> fallback calls. The judge is not in the per-record loop (A12), so it adds no calls to this bound.</p>
+        <p><em>Proof.</em> The limit tier stops any main-loop call with index <i>i</i> &gt; <i>N</i><sub>max</sub>, so the main loop has at most <i>N</i><sub>max</sub> executor calls, each paired with at most one compiler call after a failure. Each fallback item is tried once (A4), and its outcomes lead only to acceptance, the next item, or the absorbing dead-letter queue. The fallback cannot re-enter the main loop, so it is not a repair edge in the sense of Bounded Loops [14], and no cycle avoids the terminal outcomes. The breaker only shortens a batch. □</p>
+
+        <h3>5.6 Containment and Human Oversight</h3>
+        <p>A prompt is <em>rogue</em> if
+        <p>(a) its invariant block differs from an approved envelope version;
+        <p>(b) its plan is not in <i>P</i><sub>approved</sub>;
+        <p>(c) its note or plan is not drawn from the approved vocabularies; or
+        <p>(d) its length exceeds the envelope bound. Containment in this sense covers the invariant, plan, and note layers only. Content inside <i>D</i> is outside it, and is handled by the validator and by datamarking (Section 6.2).</p>
+        <p><strong>Proposition (containment).</strong> Every prompt the controller sends is non-rogue, provided the envelope signature verifies, the envelope and length checks of Section 5.4 pass for every attempt, and assumptions A1, A2, and A7 hold. Conditions (a), (b), and (d) are enforced mechanically; condition (c) is enforced by the closed-vocabulary rule of Section 6.2. The residual risk lies in the wording of the template library, which is reviewed at approval, and in the coverage of <i>V</i> (Sections 8 and 10).</p>
+
+        <p>Oversight load follows. Let <i>u</i> be the fraction of all records still unresolved after fallback, and <i>s</i> the assurance sampling rate among accepted records. The fraction needing human attention is</p>
+        <div class="formula-box">
+            <div class="math"><i>h</i> = <i>u</i> + <i>s</i> (1 − <i>u</i>)</div>
+        </div>
+        <p>A system without an approved envelope must treat each runtime-mutated prompt as potentially rogue. If a fraction <i>p</i><sub>mut</sub> of records is mutated at runtime, reviewing every mutated prompt gives <i>h</i><sub>base</sub> = <i>p</i><sub>mut</sub>. A fairer baseline reviews a random sample of mutations at the rate needed for the same detection power. That comparison was not made in this pilot (Section 9.7). When <i>u</i> is small, <i>h</i> ≈ <i>u</i> + <i>s</i>, so the envelope design's review load is set by the unresolved fraction and the sampling rate, while the review-everything load is set by <i>p</i><sub>mut</sub>. The comparison is structural; no values are assumed here. This figure excludes the amortized per-version review effort <i>Rev</i><sub><i>E</i></sub>/|<i>B</i>| (records per envelope version) and fleet pause time, which are reported separately.</p>
+
+        <div class="note-card">
+            <strong>What humans approve</strong>
+            Humans approve envelopes and their versions, not individual runtime prompts. Review effort scales with envelope changes, dead-letter records, and samples, not with the number of mutations.
+        </div>
+    </section>
+
+    <section>
+        <h2>6. Concerns Specific to Large Context</h2>
+
+        <h3>6.1 Attention and Stability</h3>
+        <p>Middle-positioned content is less reliable in long prompts <a href="#ref-liu">[2]</a>, so the invariant layer sits in the system role and a short reminder closes the prompt (Section 4.2). The reminder is a checklist with a fixed cap <i>R</i><sub>max</sub>, not a copy of <i>I</i>. Positional breakdown of invariant adherence (mid-prompt vs. end-reminder) was not measured in this pilot. Each attempt receives the full data payload, so no attempt works from a partial view. <i>D</i> must be byte-stable across attempts; timestamps, random identifiers, and reordered retrieval results must be fixed upstream.</p>
+
+        <h3>6.2 Data as an Attack Surface</h3>
+        <p>Prompt structure alone gives no guarantee against injection <a href="#ref-wallace">[17]</a> <a href="#ref-struq">[18]</a>. In autonomous pipelines, <i>D</i> can contain text that looks like instructions, drawn from documents, emails, or web pages. Two rules follow. <strong>Data stays data:</strong> <i>D</i> is wrapped in explicit tags with datamarking or spotlighting <a href="#ref-spotlight">[19]</a>, and the prompt states that content inside data tags is never an instruction. <strong>Closed vocabulary:</strong> notes are template instances and plans are IDs in <i>P</i><sub>approved</sub>, so no span of <i>D</i> can enter a plan, a note, or the ledger. Env rejects anything outside these sets, and a rejected attempt opens the fuse. Directives come from template and check IDs, so a malicious payload cannot write a directive through the failure path.</p>
+        <p>The output validator (Section 8) is the backstop: every non-null text field must appear verbatim in <i>D</i>, and every typed field must equal, after a declared normalizer in <i>T</i>, a value in <i>D</i>. This catches invented values but not an injected value that does appear in the document. That residual is a known gap; an adversarial injection test was not included in this pilot. Injected content that passes both checks is a known gap, not a covered case.</p>
+
+        <h3>6.3 Failures That Are Not Prompt Failures</h3>
+        <p>A failing output may come from retrieval rather than from the instruction, for example when a required fact is absent from <i>D</i>. The validator alone does not separate these cases. In this version every record that exhausts its attempts and its fallback menu is dead-lettered, whatever the cause. Classification and retrieval repair are open (Section 10.2, Q4).</p>
+    </section>
+
+    <section>
+        <h2>7. Operating With Minimal Human Interaction</h2>
+        <p>Removing the human does not make a system autonomous; the design gives humans defined work. A dead-lettered record carries its attempts, failure signatures, ledger, last output, the check that opened the fuse or breaker, the input reference, and the envelope version, so a reviewer can act without reconstructing the run. Before a human sees a record, the fallback menu of Section 5.5 is tried. If the menu is exhausted, the record waits for review, and the rest of the batch continues. If dead-lettering exceeds the fleet threshold within the window, the batch pauses and an alert carries the failure signatures and a sample of records. Resumption is an explicit human decision about a systemic problem.</p>
+
+        <p><strong>Assurance sampling.</strong> Accepted outputs, including those accepted on the first attempt, are sampled inside each assurance window. Sampling covers all accepted outputs without strata, so a failure concentrated in one template can be diluted by the rest; the cluster design below limits this. Sampling is the only way to detect silent failures that pass the validator. For a window with silent-failure rate at least ε, the chance that <i>n</i> independent samples all pass is at most (1 − ε)<sup><i>n</i></sup>. Choosing <i>n</i> ≥ ln(α) / ln(1 − ε) makes that chance at most α. The bound says how many samples detect a rate of ε; it does not estimate the rate.</p>
+        <p><strong>Clustered failures.</strong> Silent failures often come in clusters, from one template, one batch, or one upstream change, so the independence bound above is a reference case, and the design below applies. The sampling unit is the cluster, defined as a directive group within a batch. Accepted outputs with no directive form one cluster per batch. Two regimes are distinguished. <em>Cluster-level failures:</em> a fraction ε<sub>c</sub> of clusters is wrong, and every output in a wrong cluster fails. The window samples <i>c</i> clusters and misses every wrong cluster with probability at most (1 − ε<sub>c</sub>)<sup><i>c</i></sup>, so <i>c</i> ≥ ln(α) / ln(1 − ε<sub>c</sub>). Within each sampled cluster, a fixed number <i>j</i> of outputs is reviewed; drawing more outputs from one cluster adds little to cluster-level detection. <em>Within-cluster failures:</em> failures are spread across clusters, and outputs in one cluster are correlated with intraclass correlation ρ. The number of reviewed outputs must then be inflated by the design effect 1 + (<i>k</i> − 1)ρ, where <i>k</i> is the cluster size, to keep the power of the independent bound. ρ is not known, and was not estimated in the pilot (Section 9.7). The values of α, ε, ε<sub>c</sub>, <i>c</i>, <i>j</i>, and <i>n</i> are set in the evaluation protocol.</p>
+
+        <p>External side effects happen only after acceptance (A6). Generated SQL and code run only in a sandbox (A5). The primary oversight metric is <i>h</i>, reported with the assurance-sample error rate and total reviewer minutes per 1,000 records. The audit log stores prompt hashes and outputs. Retention, access control, and redaction of personal data in <i>D</i> are deployment requirements, outside the scope of this paper.</p>
+
+        <div class="limitation-card">
+            <strong>Risk: the exception queue becomes the hidden workload</strong>
+            If the dead-letter rate is high, human effort moves from synchronous review to queue triage. Total delay can exceed what the record count suggests, so reviewer time must be reported with the record count.
+        </div>
+    </section>
+
+    <section>
+        <h2>8. Enforcing the Immutable Boundary</h2>
+        <p>No single mechanism is treated as sufficient. API role separation places <i>I</i> with provider-level priority, but it is not a guarantee against injection. Tag isolation with escaping keeps <i>D</i> distinguishable from instructions. The declared step graph with a schema-constrained plan gives the exact structural check (Section 5.3). Constrained decoding, as in Outlines [10], LMQL [11], and XGrammar [12], makes output syntactically valid by construction, where a provider supports it. Its semantic effect is task-dependent: grammar constraints improved both syntactic and semantic accuracy in logical parsing [23], while a study of small models found that schema conformance removes structural failures and leaves a semantic gap that depends on scale [20]. Constraints can also distort the output distribution when feasible probability mass is low, and a draft-conditioned variant reports gains in strict accuracy [24]. None of these is evaluated here. Guardrail classifiers such as NeMo Guardrails [25] and Llama Guard [26] are a content and policy layer complementary to <i>V</i>. The output validator <i>V</i> is the correctness gate, and Env is the input defense on plans. An LLM judge, if used, is advisory and runs only on samples (A12).</p>
+
+        <h2>9. Pilot Experiment: Receipt Extraction on CORD v1</h2>
+        <p>This section reports a pilot study on the CORD v1 dataset <a href="#ref-cord">[27]</a>, evaluating the controller against single-shot and naive-retry baselines on receipt field extraction. The pilot covers envelope versions v2 and v3. All code is versioned, all envelopes are hashed and approved, and every run database is retained. This is a development pilot, not a definitive evaluation: it uses one task family, includes a held-out test split, and omits conditions that require full baseline implementation (conversational retry, Reflexion).</p>
+
+        <h3>9.1 Dataset and Task</h3>
+        <p>CORD v1 (CC BY 4.0) is a receipt understanding dataset of 800 train, 100 validation, and 100 test records, each an annotated image of a retail receipt. Input is text reconstructed from word-level bounding-box annotations; no image or OCR output is used. The task is to extract nine total-related amount fields (<i>total_price</i>, <i>subtotal_price</i>, <i>tax_price</i>, <i>service_price</i>, <i>discount_price</i>, <i>cashprice</i>, <i>changeprice</i>, <i>creditcardprice</i>, <i>emoneyprice</i>) and a menu list (<i>nm</i>, <i>cnt</i>, <i>price</i> per item) from each receipt text.</p>
+        <p>The validator checks that each non-null amount, once stripped of currency symbols and thousands separators, corresponds to a number that appears verbatim in the input text. Menu item names are checked for verbatim substring presence. This validator is intentionally permissive: it allows any numeric value that appears in the text, even if it is the wrong field. Arithmetic consistency checks are not implemented, so a record can pass the validator while containing a field extracted from the wrong line.</p>
+        <p>A <em>clean</em> record is one where every CORD reference value appears verbatim in the input text, making the task well-posed. Of 800 train records, 614 are clean. Pilot runs use the first 100 clean records (offset 0, limit 100) and a calibration block of 400 more (offset 100, limit 400).</p>
+
+        <h3>9.2 Envelope Versions and Conditions</h3>
+        <p><strong>Envelope v2</strong> uses <code>qwen3-8k:latest</code> (Q4_K_M, served by Ollama on a remote GPU machine, model digest <code>a68fd3999784d0ff878cb799bfe1a6f19f0ddf405651728609d687604ce10955</code>), <i>num_ctx</i>=8192, <i>num_predict</i>=512, temperature=0.3, N<sub>max</sub>=3, m=2. Templates describe each field with a "copy exactly as printed" phrasing. Three plans (A, B, C) are approved; plan C adds disambiguation text for payment fields. Envelope v2 was approved and hashed before any run.</p>
+        <p><strong>Envelope v3</strong> raises <i>num_predict</i> to 1024 and strengthens all templates: the menu directive now specifies "the last printed number for each item" (addressing @ unit-price ambiguity) and all amount templates now say "NOT the field label" (addressing label contamination). V3 was created after root-cause analysis of v2 dead letters and was approved before v3 runs begin. The envelope change is a governance event: new version, new hash, new approval record.</p>
+        <p><strong>Conditions:</strong> (1) <em>controller</em> — the full ledger-based retry loop (N<sub>max</sub>=3, m=2); (2) <em>single_shot</em> — N<sub>max</sub>=1, one attempt per record; (3) <em>naive_retry</em> — N<sub>max</sub>=3, same prompt on every attempt (no ledger directives). The single_shot and naive_retry baselines use the same envelope, model, and temperature as the controller. All three conditions are run with seeds {0, 1, 2} in block 1 and on the test split. Code, envelope files, and per-run SQLite databases are available at the repository accompanying this paper; the CORD v1 dataset is available under CC BY 4.0 at <a href="https://huggingface.co/datasets/naver-clova-ix/cord-v1">huggingface.co/datasets/naver-clova-ix/cord-v1</a>.</p>
+
+        <h3>9.3 Results: v2 Block 1 (100 records)</h3>
+        <p>Table 1 summarizes the v2 block 1 results. Controller seeds 0, 1, and 2 produced identical outcomes — same 94 accepted records, same 6 dead-lettered records — confirming that at temperature 0.3, qwen3-8k is effectively deterministic for these inputs and seeds. Single-shot seed 0 also produced the same 6 dead letters. Single-shot seed 1, however, produced 8 dead letters (the same 6 plus train-00027 and train-00028), reflecting the approximate nature of seed-based reproducibility: these two records are in a "borderline zone" where temperature 0.3 produces different outputs on different API sessions even with the same seed, a form of hardware-level non-determinism from the remote GPU. The controller accepts both records on attempt 1 with the same seed, indicating that the borderline records do not fail consistently enough to trip the repetition fuse.</p>
+
+        <table style="width:100%; border-collapse:collapse; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size:0.9rem; margin-bottom:1.5rem;">
+          <caption style="text-align:left; padding-bottom:0.5rem; font-style:italic; color:#555;">Table 1. v2 block 1: 100 clean train records, all conditions and seeds.</caption>
+          <thead>
+            <tr style="background:#f0f4f8;">
+              <th style="border:1px solid #ddd; padding:6px 10px; text-align:left;">Condition</th>
+              <th style="border:1px solid #ddd; padding:6px 10px; text-align:center;">Seed</th>
+              <th style="border:1px solid #ddd; padding:6px 10px; text-align:center;">Accept</th>
+              <th style="border:1px solid #ddd; padding:6px 10px; text-align:center;">DL</th>
+              <th style="border:1px solid #ddd; padding:6px 10px; text-align:center;">Rescued</th>
+              <th style="border:1px solid #ddd; padding:6px 10px; text-align:center;">Calls</th>
+              <th style="border:1px solid #ddd; padding:6px 10px; text-align:center;">Mean tokens (att. 1)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td style="border:1px solid #ddd; padding:6px 10px;">controller</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">0</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">94</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">6</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">0</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">106</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">388</td></tr>
+            <tr style="background:#fafafa;"><td style="border:1px solid #ddd; padding:6px 10px;">controller</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">1</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">94</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">6</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">0</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">106</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">388</td></tr>
+            <tr><td style="border:1px solid #ddd; padding:6px 10px;">controller</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">2</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">94</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">6</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">0</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">106</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">388</td></tr>
+            <tr style="background:#fafafa;"><td style="border:1px solid #ddd; padding:6px 10px;">single_shot</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">0</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">94</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">6</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">—</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">100</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">388</td></tr>
+            <tr><td style="border:1px solid #ddd; padding:6px 10px;">single_shot</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">1</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">92</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">8†</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">—</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">100</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">388</td></tr>
+            <tr style="background:#fafafa;"><td style="border:1px solid #ddd; padding:6px 10px;">single_shot</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">2</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">93</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">7†</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">—</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">100</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">386</td></tr>
+            <tr><td style="border:1px solid #ddd; padding:6px 10px;">naive_retry</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">0</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">93</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">7†</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">0</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">114</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">388</td></tr>
+            <tr style="background:#fafafa;"><td style="border:1px solid #ddd; padding:6px 10px;">naive_retry</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">1</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">94</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">6</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">1‡</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">113</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">388</td></tr>
+            <tr><td style="border:1px solid #ddd; padding:6px 10px;">naive_retry</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">2</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">94</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">6</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">0</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">112</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">388</td></tr>
+          </tbody>
+        </table>
+        <p style="font-size:0.85rem; color:#555; margin-top:-0.75rem;">† single_shot seeds 1 and 2 and naive_retry seed 0 show DL counts above the 6 core DL records because seeds provide approximate, not exact, reproducibility at temperature 0.3 on a remote GPU (hardware-level non-determinism); the same seed produces slightly different outputs across API sessions. The extra failing records are borderline cases that do not fail consistently enough to trip the repetition fuse under the controller. ‡ naive_retry seed 1 shows 1 rescue (train-00028, TAX_NOT_VALID att1 → pass att2) but this is temperature stochasticity — no directive was injected; the model produced a different output from the identical prompt on attempt 2. This is distinct from the controller's ledger-directed rescues in v3 (Section 9.5). The core 6 DL records are never rescued under any naive_retry seed.</p>
+
+        <p><strong>H1 (prompt length):</strong> Mean input tokens at attempt 1 is 388; at attempt 2 (for the 6 DL records), 506. Both are far below <i>num_ctx</i>=8192. Prompt size does not grow across attempts because the ledger adds only template-keyed directive lines, not the prior output or failure trace.</p>
+        <p><strong>H3 (containment):</strong> Every executed prompt was assembled from the approved envelope. The six DL records were stopped by the <em>repetition fuse</em> (tier: repetition; m=2), not the envelope fuse — they were not sent outside the envelope; they were stopped because the same failure signature repeated twice. No rogue prompt exited the envelope.</p>
+        <p><strong>H2 (rescue events):</strong> Zero rescued records across all three controller seeds in v2 block 1. All six core DL records fail identically on both attempts (same plan, same failing check IDs, same output). The repetition fuse fires because the failure signature repeats without change. The v2 naive_retry baseline (no ledger directive) shows 0–1 rescues across three seeds; the one rescue (seed 1, train-00028, TAX_NOT_VALID) is temperature stochasticity — the model produced a different output from an identical prompt, not a directed repair. The core 6 DL records are never rescued under naive_retry. This reveals that retry is only effective when the directive injected on attempt 2 gives the model new, targeted information. With the v2 templates the directive text was identical in meaning to what was already in the &lt;Note&gt; section on attempt 1. <strong>Pilot evidence for H2 in v3 block 1 (Section 9.5):</strong> five of the six previously dead-lettered records become directed rescue events (accepted on attempt 2 after ledger injection) after the template gaps identified in Section 9.4 are addressed; the sixth (train-00065) passes on attempt 1 outright because the increased output budget resolves truncation before any retry is needed. The formal H2 ablation baselines (check-IDs-only vs. full-output directive) were not run in this pilot.</p>
+        <p><strong>H4 (oversight load):</strong> <em>v2:</em> h = 0.06 (dead-letter rate). After creating a 14-record assurance sample and running the reference judge, h<sub>oversight</sub> = 0.20 (6 DL + 14 sampled / 100 total). The reference judge found 11 of 14 sampled accepted records deviate from CORD annotations — 78.6% reference discrepancy rate (Wilson 95% CI: [52.4%, 92.4%]). <em>v3:</em> h = 0.00 (zero dead letters). Reference judge on 14 sampled records found 10 of 14 incorrect — 71.4% discrepancy rate (Wilson 95% CI: [45.4%, 88.3%]); h<sub>oversight</sub> = 0.14 (0 DL + 14 sampled / 100 total). Human review of the same 14 records found 8 of 14 incorrect — 57.1% discrepancy rate (Wilson 95% CI: [32.6%, 78.6%]). The 2-record gap (train-00023: tax_price reference='0' vs. model=None; train-00058: menu extraction) reflects cases where the reference judge enforces exact CORD annotation equivalence while a human reviewer accepts semantically equivalent output (a tax price of '0' and None both signal "no tax charged"). This is a structural limitation of automated reference judges: exact-match annotation comparison overestimates discrepancies on fields with multiple valid representations. The validator remains permissive and assurance sampling is necessary for both versions; the human review is the more authoritative signal. Note: these are 14-record samples and the CIs are wide; H4 specifies a pre-fixed oversight target h* that was not established before this pilot, so these are observations on oversight load, not a formal test of H4.</p>
+
+        <h3>9.4 Dead-Letter Root-Cause Analysis</h3>
+        <p>Post-mortem inspection of the six v2 dead-lettered records (by reading the stored output text and running normalize_amount on the extracted values) identified three distinct root causes. All six failures are structural gaps between the model's interpretation of "copy exactly as printed" and the CORD reference schema. None of the six was salvageable by the v2 retry, because the directive injected on attempt 2 carried the same phrasing as the initial template.</p>
+
+        <table style="width:100%; border-collapse:collapse; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size:0.88rem; margin-bottom:1.5rem;">
+          <caption style="text-align:left; padding-bottom:0.5rem; font-style:italic; color:#555;">Table 2. v2 block 1 dead-letter root causes (6 records).</caption>
+          <thead>
+            <tr style="background:#f0f4f8;">
+              <th style="border:1px solid #ddd; padding:6px 10px;">Record</th>
+              <th style="border:1px solid #ddd; padding:6px 10px;">Failing Check</th>
+              <th style="border:1px solid #ddd; padding:6px 10px;">Root Cause</th>
+              <th style="border:1px solid #ddd; padding:6px 10px;">Model Output (excerpt)</th>
+              <th style="border:1px solid #ddd; padding:6px 10px;">Expected</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td style="border:1px solid #ddd; padding:6px 10px;">train-00023</td><td style="border:1px solid #ddd; padding:6px 10px;">MENU_PRICE_NOT_VALID</td><td style="border:1px solid #ddd; padding:6px 10px;">@ prefix in unit price (normalize_amount returns None for "@21,000")</td><td style="border:1px solid #ddd; padding:6px 10px; font-family:monospace; font-size:0.82rem;">"price": "@21,000"</td><td style="border:1px solid #ddd; padding:6px 10px; font-family:monospace; font-size:0.82rem;">"21,000"</td></tr>
+            <tr style="background:#fafafa;"><td style="border:1px solid #ddd; padding:6px 10px;">train-00048</td><td style="border:1px solid #ddd; padding:6px 10px;">MENU_PRICE_NOT_VALID</td><td style="border:1px solid #ddd; padding:6px 10px;">Compound price (unit × qty both copied; receipt: "2  13.500  27.000")</td><td style="border:1px solid #ddd; padding:6px 10px; font-family:monospace; font-size:0.82rem;">"price": "13.500 27.000"</td><td style="border:1px solid #ddd; padding:6px 10px; font-family:monospace; font-size:0.82rem;">"27.000"</td></tr>
+            <tr><td style="border:1px solid #ddd; padding:6px 10px;">train-00065</td><td style="border:1px solid #ddd; padding:6px 10px;">PARSE_ERROR</td><td style="border:1px solid #ddd; padding:6px 10px;">JSON truncated: receipt has a long menu list; num_predict=512 tokens is insufficient</td><td style="border:1px solid #ddd; padding:6px 10px; font-family:monospace; font-size:0.82rem;">{"menu": [... (cut)</td><td style="border:1px solid #ddd; padding:6px 10px; font-family:monospace; font-size:0.82rem;">complete JSON</td></tr>
+            <tr style="background:#fafafa;"><td style="border:1px solid #ddd; padding:6px 10px;">train-00089</td><td style="border:1px solid #ddd; padding:6px 10px;">TOTAL/CASH/CHANGE_NOT_VALID</td><td style="border:1px solid #ddd; padding:6px 10px;">Label contamination: model copies label + value; normalize_amount fails on non-numeric prefix</td><td style="border:1px solid #ddd; padding:6px 10px; font-family:monospace; font-size:0.82rem;">"total_price": "Total Rp 5.000"</td><td style="border:1px solid #ddd; padding:6px 10px; font-family:monospace; font-size:0.82rem;">"5.000"</td></tr>
+            <tr><td style="border:1px solid #ddd; padding:6px 10px;">train-00099</td><td style="border:1px solid #ddd; padding:6px 10px;">MENU_PRICE_NOT_VALID</td><td style="border:1px solid #ddd; padding:6px 10px;">Same as 00023/00048: @ prefix and compound price (item includes add-on that changes unit≠line total)</td><td style="border:1px solid #ddd; padding:6px 10px; font-family:monospace; font-size:0.82rem;">"price": "@20,000 23,000"</td><td style="border:1px solid #ddd; padding:6px 10px; font-family:monospace; font-size:0.82rem;">"23,000"</td></tr>
+            <tr style="background:#fafafa;"><td style="border:1px solid #ddd; padding:6px 10px;">train-00103</td><td style="border:1px solid #ddd; padding:6px 10px;">PARSE_ERROR</td><td style="border:1px solid #ddd; padding:6px 10px;">Same as 00065: long menu, JSON truncated by num_predict=512</td><td style="border:1px solid #ddd; padding:6px 10px; font-family:monospace; font-size:0.82rem;">{"menu": [... (cut)</td><td style="border:1px solid #ddd; padding:6px 10px; font-family:monospace; font-size:0.82rem;">complete JSON</td></tr>
+          </tbody>
+        </table>
+
+        <p>Two of the six failures (train-00065 and train-00103) are <em>budget-side</em>: the JSON output is truncated by num_predict=512 before the validator can check any field. The other four are <em>template-side</em>: the model follows the template's instructions, but the template does not specify enough to choose the right interpretation (@unit_price vs. line total, compound price, label contamination). The budget-side failures are not addressable by directive injection on attempt 2 — a directive cannot fix a truncated output. They are addressed in v3 by raising num_predict to 1024; the two records diverge once truncation is fixed: train-00065 passes attempt 1 outright in v3 (the budget fix is sufficient, no retry needed), while train-00103 reveals a secondary MENU_ITEM_NOT_VERBATIM failure on attempt 1 that the directive then addresses on attempt 2 — a cascade-rescue (see Section 9.5.1). The template-side failures are not addressed by retry in v2 because the directive injected on attempt 2 is identical in meaning to the initial template; they are addressed in v3 by strengthened directive text. This is the practical lesson of the pilot: the failure ledger and retry mechanism address template-side failures when the approved templates are specific enough to give the model new information on attempt 2.</p>
+
+        <h3>9.5 Envelope Versioning: v2 → v3</h3>
+        <p>Following the root-cause analysis, a revised envelope v3 was authored, hashed, and approved. Changes: (1) <i>num_predict</i> raised 512→1024 to accommodate long menu lists; (2) the <code>menu</code> template now specifies "price is the LAST printed number on the item line — never the @ unit-price or both numbers"; (3) all nine amount templates now say "extract ONLY the amount value, NOT the field label." No code changes were required. The envelope governance mechanism — new version, new hash, human approval — forces the template change to be deliberate, documented, and auditable.</p>
+        <p>This is the intended operating model: the controller surfaces structural failures that the template cannot address, a human updates the template, and the new envelope governs all subsequent runs.</p>
+
+        <h4>9.5.1 v3 Block 1 Results (all conditions)</h4>
+        <p>Table 3 shows the complete v3 block 1 results. All three controller seeds accepted all 100 records with zero dead letters — a complete elimination of the v2 DL set. Rescue counts vary by seed (5–7) because temperature 0.3 makes borderline records fail attempt 1 non-deterministically; the 5 core records that needed directed repair (train-00023, 00048, 00089, 00099, 00103) are rescued in all seeds. The v3 single_shot and naive_retry baselines are consistent with the view that template improvements only matter when the retry mechanism fires with typed directives: single_shot produces 5–8 DL (same range as v2), and naive_retry produces 0–2 stochastic rescues — never on the core 5 systematic failures.</p>
+
+        <table style="width:100%; border-collapse:collapse; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size:0.9rem; margin-bottom:1.5rem;">
+          <caption style="text-align:left; padding-bottom:0.5rem; font-style:italic; color:#555;">Table 3. v3 block 1: all completed conditions, 100 clean train records.</caption>
+          <thead>
+            <tr style="background:#f0f4f8;">
+              <th style="border:1px solid #ddd; padding:6px 10px; text-align:left;">Version / Condition</th>
+              <th style="border:1px solid #ddd; padding:6px 10px; text-align:center;">Seed</th>
+              <th style="border:1px solid #ddd; padding:6px 10px; text-align:center;">Accept</th>
+              <th style="border:1px solid #ddd; padding:6px 10px; text-align:center;">DL</th>
+              <th style="border:1px solid #ddd; padding:6px 10px; text-align:center;">Rescued</th>
+              <th style="border:1px solid #ddd; padding:6px 10px; text-align:center;">Calls</th>
+              <th style="border:1px solid #ddd; padding:6px 10px; text-align:center;">Tokens att.1</th>
+              <th style="border:1px solid #ddd; padding:6px 10px; text-align:center;">Tokens att.2</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td style="border:1px solid #ddd; padding:6px 10px; color:#888;">v2 controller (baseline)</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center; color:#888;">0–2</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center; color:#888;">94</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center; color:#888;">6</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center; color:#888;">0</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center; color:#888;">106</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center; color:#888;">388</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center; color:#888;">506</td></tr>
+            <tr style="background:#f0faf0;"><td style="border:1px solid #ddd; padding:6px 10px;"><strong>v3 controller</strong></td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;"><strong>0</strong></td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;"><strong>100</strong></td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;"><strong>0</strong></td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;"><strong>6</strong></td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;"><strong>106</strong></td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;"><strong>388</strong></td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;"><strong>653</strong></td></tr>
+            <tr style="background:#f0faf0;"><td style="border:1px solid #ddd; padding:6px 10px;"><strong>v3 controller</strong></td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;"><strong>1</strong></td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;"><strong>100</strong></td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;"><strong>0</strong></td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;"><strong>7†</strong></td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;"><strong>107</strong></td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;"><strong>388</strong></td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;"><strong>630</strong></td></tr>
+            <tr style="background:#f0faf0;"><td style="border:1px solid #ddd; padding:6px 10px;"><strong>v3 controller</strong></td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;"><strong>2</strong></td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;"><strong>100</strong></td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;"><strong>0</strong></td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;"><strong>5†</strong></td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;"><strong>105</strong></td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;"><strong>388</strong></td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;"><strong>663</strong></td></tr>
+            <tr><td style="border:1px solid #ddd; padding:6px 10px;">v3 single_shot</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">0</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">94</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">6‡</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">—</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">100</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">388</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">—</td></tr>
+            <tr style="background:#fafafa;"><td style="border:1px solid #ddd; padding:6px 10px;">v3 single_shot</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">1</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">92</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">8‡</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">—</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">100</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">388</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">—</td></tr>
+            <tr><td style="border:1px solid #ddd; padding:6px 10px;">v3 single_shot</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">2</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">95</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">5‡</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">—</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">100</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">388</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">—</td></tr>
+            <tr style="background:#fafafa;"><td style="border:1px solid #ddd; padding:6px 10px;">v3 naive_retry</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">0</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">94</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">6</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">0</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">112</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">388</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">423</td></tr>
+            <tr><td style="border:1px solid #ddd; padding:6px 10px;">v3 naive_retry</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">1</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">95</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">5</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">2§</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">112</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">388</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">420</td></tr>
+            <tr style="background:#fafafa;"><td style="border:1px solid #ddd; padding:6px 10px;">v3 naive_retry</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">2</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">94</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">6</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">1§</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">113</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">388</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">458</td></tr>
+          </tbody>
+        </table>
+        <p style="font-size:0.85rem; color:#555; margin-top:-0.75rem;">† Rescue counts vary across seeds because temperature 0.3 causes borderline records to fail att1 non-deterministically; the 5 core rescue records (train-00023, 00048, 00089, 00099, 00103) appear in all three seeds. s1 adds train-00028 and train-00104; s0 adds train-00031. ‡ v3 single_shot DL counts (5–8 across seeds) match or exceed v2 single_shot (6 DL). Template improvements only fire when attempt 2 runs; single_shot never retries, so the core failures persist. Seed-to-seed variation reflects temperature non-determinism. § naive_retry stochastic rescues: s1 rescues train-00092 and train-00104; s2 rescues train-00075 — identical prompt, different output on attempt 2 from temperature randomness; no directive was injected. The core 5 systematic records (train-00023, 00048, 00089, 00099, 00103) are never rescued under any naive_retry seed. The att.2 tokens for naive_retry (420–458 across seeds) are much lower than controller att.2 (630–663) because no ledger directive text is injected — just retry overhead.</p>
+
+        <p>Table 4 lists the six rescue events. Each record failed on attempt 1 and was accepted on attempt 2 after the typed failure directive was injected. The attempt-2 prompt is longer (mean 653 tokens vs. 388 on attempt 1) because the template text is included in the ledger directive.</p>
+
+        <table style="width:100%; border-collapse:collapse; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size:0.88rem; margin-bottom:1.5rem;">
+          <caption style="text-align:left; padding-bottom:0.5rem; font-style:italic; color:#555;">Table 4. v3 block 1 rescue events (6 records).</caption>
+          <thead>
+            <tr style="background:#f0f4f8;">
+              <th style="border:1px solid #ddd; padding:6px 10px;">Record</th>
+              <th style="border:1px solid #ddd; padding:6px 10px;">Att. 1 failure</th>
+              <th style="border:1px solid #ddd; padding:6px 10px;">In att.1 / att.2 (tokens)</th>
+              <th style="border:1px solid #ddd; padding:6px 10px;">Root cause addressed by v3</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td style="border:1px solid #ddd; padding:6px 10px;">train-00023</td><td style="border:1px solid #ddd; padding:6px 10px;">MENU_PRICE_NOT_VALID</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">372 / 591</td><td style="border:1px solid #ddd; padding:6px 10px;">@unit_price; menu template now says "LAST printed number"</td></tr>
+            <tr style="background:#fafafa;"><td style="border:1px solid #ddd; padding:6px 10px;">train-00031†</td><td style="border:1px solid #ddd; padding:6px 10px;">MENU_PRICE_NOT_VALID</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">382 / 601</td><td style="border:1px solid #ddd; padding:6px 10px;">Not a v2 DL: borderline record revealed by temperature non-determinism; rescued on att.2</td></tr>
+            <tr><td style="border:1px solid #ddd; padding:6px 10px;">train-00048</td><td style="border:1px solid #ddd; padding:6px 10px;">MENU_PRICE_NOT_VALID</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">451 / 670</td><td style="border:1px solid #ddd; padding:6px 10px;">Compound price (unit × qty); menu template now says "LAST printed number"</td></tr>
+            <tr style="background:#fafafa;"><td style="border:1px solid #ddd; padding:6px 10px;">train-00089</td><td style="border:1px solid #ddd; padding:6px 10px;">CASH+CHANGE+SUBTOTAL+TOTAL_NOT_VALID</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">347 / 599</td><td style="border:1px solid #ddd; padding:6px 10px;">Label contamination on all 4 amount fields; amount templates now say "NOT the field label"</td></tr>
+            <tr><td style="border:1px solid #ddd; padding:6px 10px;">train-00099</td><td style="border:1px solid #ddd; padding:6px 10px;">MENU_PRICE_NOT_VALID</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">423 / 642</td><td style="border:1px solid #ddd; padding:6px 10px;">@unit_price with add-on; menu template fixes ambiguity</td></tr>
+            <tr style="background:#fafafa;"><td style="border:1px solid #ddd; padding:6px 10px;">train-00103</td><td style="border:1px solid #ddd; padding:6px 10px;">MENU_ITEM_NOT_VERBATIM‡</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">594 / 813</td><td style="border:1px solid #ddd; padding:6px 10px;">v2 PARSE_ERROR masked this; v3 num_predict=1024 generates full JSON; menu directive then fixes verbatim issue</td></tr>
+          </tbody>
+        </table>
+        <p style="font-size:0.85rem; color:#555; margin-top:-0.75rem;">† train-00031 passed on attempt 1 in v2 (not a v2 DL). It appeared as a new failure in v3 due to temperature non-determinism; the directive rescued it on attempt 2. ‡ train-00103 was a PARSE_ERROR in v2 (truncation hid the verbatim issue); in v3 the full menu is generated and the verbatim check fires on attempt 1 — the cascade-rescue pattern.</p>
+
+        <p><strong>Key finding (pilot evidence for H2):</strong> Five of the six systematic dead letters from v2 are rescued in v3 — the typed failure ledger injected a directive on attempt 2 that changed model behavior. The sixth (train-00065) passes on attempt 1 outright in v3 because the increased output budget (num_predict=1024) resolves the truncation; it was accepted without any retry. The cascade-rescue in train-00103 illustrates that fixing an upstream blocking failure (truncation) can reveal a downstream failure (verbatim check) that the retry mechanism then addresses — the ledger is not limited to single-check failures. H2 evidence also extends to marginal failures (v2 block 2: 7 rescue events in 400 records, where the generic "copy as printed" reminder is sufficient). The v3 naive_retry baseline (same envelope, no ledger injection) shows 0–2 stochastic rescues — never on the core 5 systematic records — consistent with the typed directive, not the extra attempt, being what drives the rescue. The formal H2 baselines (check-IDs-only vs. full-output directive) were not run; the pilot does not resolve whether it is specifically the typed template text, as opposed to any additional context, that matters.</p>
+
+        <h4>9.5.2 Fleet-Breaker Calibration (v2 Block 2, 400 records)</h4>
+        <p>With 400 records and an observed DL rate p₀ = 0.0625 (25/400), calibration of the fleet-breaker threshold gives: sliding window W<sub>d</sub> = 50, φ = 0.120. The breaker trips when more than 6 dead letters appear in any window of 50 records (k = 6, one-sided binomial test at α = 0.05). This is the nominal threshold for a two-fold increase over the baseline rate. It is not yet applied to any envelope; φ is set only through a new approved envelope version. The v2 block 2 run also found 7 rescue events across 400 records — a rescue rate of 1.75% — confirming marginal failures are common enough to matter at batch scale.</p>
+
+        <h3>9.6 Test Split Results (84 clean records, held-out)</h3>
+        <p>Table 5 shows the v3 test split results across all three conditions and three seeds. The harness filtered 100 test records to 84 clean records using the same clean-subset rule as the train split. The test split was held out until after the train split analysis and human review were complete; these results were not seen during envelope development.</p>
+
+        <table style="width:100%; border-collapse:collapse; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size:0.9rem; margin-bottom:1.5rem;">
+          <caption style="text-align:left; padding-bottom:0.5rem; font-style:italic; color:#555;">Table 5. v3 test split: all conditions and seeds, 84 clean test records.</caption>
+          <thead>
+            <tr style="background:#f0f4f8;">
+              <th style="border:1px solid #ddd; padding:6px 10px; text-align:left;">Condition</th>
+              <th style="border:1px solid #ddd; padding:6px 10px; text-align:center;">Seed</th>
+              <th style="border:1px solid #ddd; padding:6px 10px; text-align:center;">Accept</th>
+              <th style="border:1px solid #ddd; padding:6px 10px; text-align:center;">DL</th>
+              <th style="border:1px solid #ddd; padding:6px 10px; text-align:center;">Rescued</th>
+              <th style="border:1px solid #ddd; padding:6px 10px; text-align:center;">Calls</th>
+              <th style="border:1px solid #ddd; padding:6px 10px; text-align:center;">Tokens att.1</th>
+              <th style="border:1px solid #ddd; padding:6px 10px; text-align:center;">Tokens att.2</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="background:#f0faf0;"><td style="border:1px solid #ddd; padding:6px 10px;"><strong>controller</strong></td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;"><strong>0</strong></td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;"><strong>81</strong></td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;"><strong>3</strong></td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;"><strong>5†</strong></td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;"><strong>94</strong></td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;"><strong>383</strong></td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;"><strong>566</strong></td></tr>
+            <tr style="background:#f0faf0;"><td style="border:1px solid #ddd; padding:6px 10px;"><strong>controller</strong></td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;"><strong>1</strong></td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;"><strong>82</strong></td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;"><strong>2</strong></td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;"><strong>4†</strong></td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;"><strong>91</strong></td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;"><strong>383</strong></td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;"><strong>525</strong></td></tr>
+            <tr style="background:#f0faf0;"><td style="border:1px solid #ddd; padding:6px 10px;"><strong>controller</strong></td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;"><strong>2</strong></td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;"><strong>81</strong></td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;"><strong>3</strong></td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;"><strong>5†</strong></td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;"><strong>93</strong></td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;"><strong>383</strong></td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;"><strong>571</strong></td></tr>
+            <tr><td style="border:1px solid #ddd; padding:6px 10px;">single_shot</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">0</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">76</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">8</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">—</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">84</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">383</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">—</td></tr>
+            <tr style="background:#fafafa;"><td style="border:1px solid #ddd; padding:6px 10px;">single_shot</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">1</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">78</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">6</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">—</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">84</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">383</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">—</td></tr>
+            <tr><td style="border:1px solid #ddd; padding:6px 10px;">single_shot</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">2</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">76</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">8</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">—</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">84</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">383</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">—</td></tr>
+            <tr style="background:#fafafa;"><td style="border:1px solid #ddd; padding:6px 10px;">naive_retry</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">0</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">76</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">8</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">0‡</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">100</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">383</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">—</td></tr>
+            <tr><td style="border:1px solid #ddd; padding:6px 10px;">naive_retry</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">1</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">78</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">6</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">0‡</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">96</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">383</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">—</td></tr>
+            <tr style="background:#fafafa;"><td style="border:1px solid #ddd; padding:6px 10px;">naive_retry</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">2</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">76</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">8</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">0‡</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">100</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">383</td><td style="border:1px solid #ddd; padding:6px 10px; text-align:center;">—</td></tr>
+          </tbody>
+        </table>
+        <p style="font-size:0.85rem; color:#555; margin-top:-0.75rem;">† Controller rescue counts (4–5 per seed) include directed rescues of systematic failures and one borderline record rescued per seed due to temperature non-determinism at att1. Two records (test-00009, test-00066) are DL in all three controller seeds — new systematic failures not fully addressed by v3 templates. ‡ naive_retry DL sets are identical to single_shot DL sets in every seed (s0: 8 DL; s1: 6 DL; s2: 8 DL) — zero stochastic rescues, consistent with the typed directive, not the extra attempt, being what rescues systematic failures.</p>
+
+        <p><strong>Key findings (test split):</strong> The controller reduces the DL rate from 7.1–9.5% (single_shot/naive_retry) to 2.4–3.6% on held-out test data. Naive_retry DL sets are identical to single_shot in every seed — zero stochastic rescues — consistent with H2 but not a formal confirmation (the check-IDs-only and full-output ablation baselines were not run). Two test records (test-00009, test-00066) remain DL across all controller seeds, indicating new systematic failure patterns not captured by v3 templates; these are candidates for a v4 envelope revision. The bounded prompt growth property holds: att.1 tokens average 383 (within <i>num_ctx</i>=8192), att.2 averages 525–571 (same template injection mechanics as the train split).</p>
+        <p><strong>McNemar test (controller vs. naive_retry, paired on the same 84 records):</strong> s0: 5 discordant pairs (controller accepts, naive_retry DL; 0 reverse), p = 0.0625; s1: 4 discordant pairs, p = 0.125; s2: 5 discordant pairs, p = 0.0625. Two-tailed exact binomial. Not significant at α = 0.05 in any seed. The test is severely underpowered on 84 records and 4–5 discordant pairs; it cannot rule out a meaningful effect.</p>
+        <p><strong>Test-split reference judge sample (14 records):</strong> The controller-s0 accepted set (81 records) was sampled by taking 14 records in run order (records 1–14 of the accepted set). The reference judge ran the same automated check used for the v2 and v3 train-split samples (comparing extracted fields against CORD annotations), using the same prompt. No human review was performed on the test-split sample. 14/14 records had at least one field deviating from the CORD annotation (Wilson 95% CI: [78.5%, 100%]). This confirms the validator accept rate drastically overstates field accuracy, as observed in the train split, but the sample was not drawn by a pre-specified random scheme and human review was not done, so the discrepancy rate is an observation, not a formal accuracy estimate.</p>
+
+        <h3>9.7 What Was Not Measured</h3>
+        <p>The following quantities from the protocol were not measured in this pilot and remain open. The repetition count <i>m</i>=2 is used throughout; experimental calibration was not performed. The within-cluster correlation ρ needs a larger batch with clustered failure data. Per-version review effort <i>Rev<sub>E</sub></i> was not timed. The conversational retry (Reflexion-style) and the H2 ablation baselines (check-IDs-only vs. full-output) are not implemented in this pilot. Fuse precision and recall require counterfactual runs.</p>
+        <p><strong>What would formally confirm H2.</strong> H2 as defined in Section 1 requires demonstrating that the <em>typed template content</em> — not merely the presence of additional context — is what drives rescue. This requires two ablation baselines that were not run: (a) a check-IDs-only baseline that injects only the failure check identifier on attempt 2, without the template directive text; and (b) a full-output baseline that appends the raw previous output. Neither was implemented. The pilot's evidence is that naive_retry (same prompt repeated, no directive injection) never rescues the core 5 systematic failures across any seed, while the controller (full typed directive) rescues all five. This is consistent with H2 but does not isolate the typed template text as the active ingredient. A subsequent pilot with these baselines is needed to formally confirm H2.</p>
+    </section>
+
+    <section>
+        <h2>10. Status, Open Questions, and Limitations</h2>
+
+        <h3>10.1 Status of the Claims</h3>
+        <p><strong>Enforced by the controller, by construction:</strong> bounded prompt length (Section 5.1), termination of the controller loop (Section 5.5), and containment of the invariant, plan, and note layers (Section 5.6). These hold whatever the model does, provided the envelope signature verifies and assumptions A1–A7 and A13 hold.</p>
+        <p><strong>Confirmed in the pilot (Section 9):</strong> H3 (all dead-lettered records stopped by the repetition fuse inside the envelope, zero rogue prompts). H1 as defined in Section 1 compares prompt growth against a conversational retry baseline; that baseline was not run. What was measured: controller prompt tokens stay at 388 at attempt 1 and 506–653 at attempt 2, stable within <i>num_ctx</i>=8192 — the layered design's own prompt length is bounded by construction. Whether conversational retry would have grown past this is an open question; the test receipts are short, and the large-context claim is not stressed at this scale.</p>
+        <p><strong>H2 — pilot evidence, not confirmed as defined:</strong> H2 as defined in Section 1 requires demonstrating that typed template directives, and not merely any additional context, drive rescue. The formal ablation baselines (check-IDs-only vs. full-output) were not run. The pilot provides consistent evidence: in v3 block 1, 5 core records are rescued in all three seeds; the v3 naive_retry baseline shows zero rescues on those same 5 records across all seeds (including the test split, where naive_retry DL sets are identical to single_shot in every seed — zero stochastic rescues). A McNemar exact test on the test split (controller vs. naive_retry on the same 84 records) gives p = 0.0625–0.125 across seeds, borderline and not significant at α = 0.05 two-tailed. The pattern is consistent with template specificity driving rescue effectiveness, but the pilot does not formally confirm H2 as stated.</p>
+        <p><strong>H4 — observations on oversight load, target not pre-fixed:</strong> H4 specifies a pre-fixed oversight target h* that was not established before this pilot. Observed oversight loads: v2 h = 0.06, h<sub>oversight</sub> = 0.20, reference discrepancy rate 78.6% (Wilson 95% CI: [52.4%, 92.4%]); v3 h = 0.00, h<sub>oversight</sub> = 0.14, reference discrepancy 71.4% ([45.4%, 88.3%]), human-review discrepancy 57.1% ([32.6%, 78.6%]). Reference judge found 14/14 test-split sampled records had CORD annotation discrepancies (100%, Wilson 95% CI: [78.5%, 100%]), confirming the validator accept rate (96.4%) drastically overstates field accuracy. The human review is more authoritative than the reference judge; the validator is permissive and assurance sampling is necessary for any accuracy claim.</p>
+        <p><strong>Fleet breaker calibrated:</strong> φ = 0.120, W<sub>d</sub> = 50 (v2 block 2, p₀ = 0.0625).</p>
+        <p><strong>Not yet measured:</strong> conversational retry comparison (H2 formal baselines), frozen-strategy ablation, fuse precision/recall, drift–failure correlation, per-version reviewer time, within-cluster ρ.</p>
+        <p><strong>Not claimed:</strong> output correctness (validator is permissive; 57–79% of accepted train records showed reference or human-review discrepancies; 100% of sampled test records showed reference discrepancies), and whether the approved plans are good choices for a record (L2).</p>
+
+        <h3>10.2 Open Questions</h3>
+        <p>These are research questions that the specification makes precise but does not answer.</p>
+        <ol>
+            <li><strong>Q1. Selection versus a frozen strategy.</strong> Does choosing among <i>P</i><sub>approved</sub>, by a fixed rule or a learned selector, beat a frozen strategy? If the ablation matches, runtime plan choice contributes little and the envelope is the method.</li>
+            <li><strong>Q2. Size of the plan space.</strong> This paper uses a finite approved list, so drift is an approval-time lint. Synthesizing plans within <i>G</i><sub>0</sub> would make drift a runtime signal but make containment harder to claim. Which is better is open.</li>
+            <li><strong>Q3. Cross-group consistency.</strong> Two groups can each be satisfied while their combined requirements conflict. The invoice example has a typed date field and a verbatim provenance rule, which are compatible only through a declared normalizer. One directive per group does not detect such conflicts in general.</li>
+            <li><strong>Q4. Addressable failures.</strong> In the large-context regime, what fraction of failures can a prompt change fix, and what fraction reflect a fact missing from <i>D</i>?</li>
+            <li><strong>Q5. Silent-failure rates under clustering.</strong> How should a silent-failure rate be estimated when failures cluster by template or batch? The independent bound in Section 7 assumes independent samples within the window; the cluster design there does not estimate a rate.</li>
+            <li><strong>Q6. When envelope authoring pays.</strong> When is an envelope worth more than a fixed prompt with the same validator? Authoring time was not measured in this pilot; the comparison is an open empirical question.</li>
+        </ol>
+
+        <h3>10.3 Limitations</h3>
+        <div class="limitation-card">
+            <strong>L1. Envelope authoring effort</strong>
+            Guarantees hold relative to the envelope. A narrow envelope blocks legitimate adaptation, and a broad one permits behavior the task owner did not intend. Authoring and maintaining the envelope is the main effort of the approach.
+        </div>
+
+        <div class="limitation-card">
+            <strong>L2. Selection among pre-approved plans; non-determinism</strong>
+            Runtime behavior is selection among precomputed plans. The system cannot generate a strategy that no one approved, and the drift measure has no runtime role. A plan that passes the envelope check is legal but may still be a poor choice for a record; drift–failure correlation was not measured in this pilot (Section 9.7). Illegal plans fail Env and are dead-lettered. Re-execution does not make the model deterministic, so output quality varies across runs and model versions. The termination and containment properties concern the controller, not output quality.
+        </div>
+
+        <div class="limitation-card">
+            <strong>L3. Residual cross-group conflicts</strong>
+            One directive per group removes contradictions within a group but not across groups. Two groups can still issue conflicting directives, such as "be concise" and "include exhaustive detail." A new failure in a group also overwrites the previous directive for that group, which can drop a directive that still applies.
+        </div>
+
+        <div class="limitation-card">
+            <strong>L4. Threshold sensitivity</strong>
+            θ<sub>drift</sub> and <i>m</i> are domain-dependent, and φ and φ<sub>s</sub> depend on the nominal rates assumed in their null model. A low drift threshold admits plans far from the declared graph; a high one rejects legitimate plans at approval. Calibration needs labeled data, which a new task may not have. A small <i>m</i> blocks repeated failure signatures and plans early, which may be too strict for some tasks.
+        </div>
+
+        <div class="limitation-card">
+            <strong>L5. Silent failures, human delay, and hidden workload</strong>
+            A weak validator passes flawed outputs, and neither the fuse nor the dead-letter count sees them; only sampled silent failures do. Samples are clustered as in Section 7, but the within-cluster correction requires ρ, which has not been estimated, so the design is not validated for correlated failures. Template wording is reviewed once, at approval. Dead-lettered records wait for reviewers, so throughput depends on the dead-letter rate. A low oversight load is not evidence of correctness; assurance sampling and reviewer-time reporting are needed for any claim of autonomy.
+        </div>
+
+        <h3>10.4 Where You Can Contribute</h3>
+        <p>The idea is meant to be built on. Useful work includes:</p>
+        <ul>
+            <li>Answering Q1 and Q2 on a real task family, comparing a runtime selector with a frozen strategy and checking how large the plan space can be before approval becomes impractical.</li>
+            <li>Measuring the quantities listed in Section 9.7: the repetition count <i>m</i>, the within-cluster correlation ρ, and per-version review effort <i>Rev</i><sub><i>E</i></sub>.</li>
+            <li>Proposing a failure-class or cross-group conflict check that addresses Q3 and L3.</li>
+            <li>Running the ablations and baselines described in Section 9.7 and reporting failures of H1–H4, not only successes.</li>
+            <li>Writing acceptance cases for Appendix D under the definitions in Appendix B.</li>
+        </ul>
+    </section>
+
+    <section>
+        <h2>11. Conclusion</h2>
+        <p>Runtime prompt revision in large-context pipelines with minimal human interaction is effectively new program logic generated during execution, and reviewing each instance does not scale. This paper limits runtime behavior to choosing among plans that a human approves once per envelope version, and records failures in a bounded, typed ledger. Each record is governed by a fuse, and the batch by a fleet-level breaker. The controller's termination and containment properties hold regardless of model behavior. A pilot on CORD v1 receipt extraction confirms containment (H3) by construction and shows the controller's own prompt length stays bounded — the conversational baseline required by H1's definition was not run — and demonstrates the governance mechanism in action: root-cause analysis of the v2 dead letters led directly to a revised envelope (v3) — changes that previously required debugging a live system now require authoring a new envelope version, hashing it, and obtaining human approval. The pilot surfaces a key practical lesson: the retry mechanism is only effective when the approved templates are specific enough to give the model new information on attempt 2. On the held-out test split, the controller achieves 96.4–97.6% accept rate (2–3 DL / 84 records) vs. 90.5–92.9% (6–8 DL) for single_shot and naive_retry; naive_retry DL sets are identical to single_shot in every seed (zero stochastic rescues), consistent with H2. The pilot does not formally confirm H2 or H4 as defined: the ablation baselines were not run and the oversight target h* was not pre-fixed. The validator accept rate overstates field accuracy; reference-judge sampling found discrepancies in 14/14 sampled test records. Assurance sampling and per-version review effort remain necessary for any correctness claim under unattended operation.</p>
+    </section>
+
+    <section>
+        <h2>References</h2>
+        <p style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 0.9rem;">
+            <span id="ref-shinn">[1]</span> N. Shinn et al. Reflexion: Language Agents with Verbal Reinforcement Learning. NeurIPS 2023. arXiv:2303.11366.<br>
+            <span id="ref-liu">[2]</span> N. F. Liu et al. Lost in the Middle: How Language Models Use Long Contexts. Transactions of the ACL, 2024. arXiv:2307.03172.<br>
+            <span id="ref-madaan">[3]</span> A. Madaan et al. Self-Refine: Iterative Refinement with Self-Feedback. NeurIPS 2023. arXiv:2303.17651.<br>
+            <span id="ref-yao">[4]</span> S. Yao et al. ReAct: Synergizing Reasoning and Acting in Language Models. ICLR 2023. arXiv:2210.03629.<br>
+            <span id="ref-tot">[5]</span> S. Yao et al. Tree of Thoughts: Deliberate Problem Solving with Large Language Models. NeurIPS 2023. arXiv:2305.10601.<br>
+            <span id="ref-dspy">[6]</span> O. Khattab et al. DSPy: Compiling Declarative Language Model Calls into Self-Improving Pipelines. arXiv:2310.03714, 2023.<br>
+            <span id="ref-promptbreeder">[7]</span> C. Fernando et al. Promptbreeder: Self-Referential Self-Improvement via Prompt Evolution. ICML 2024 (PMLR 235). arXiv:2309.16797.<br>
+            <span id="ref-assertions">[8]</span> O. Singhvi et al. DSPy Assertions: Computational Constraints for Self-Refining Language Model Pipelines. arXiv:2312.13382, 2023.<br>
+            <span id="ref-fowler">[9]</span> M. Fowler. Circuit Breaker. martinfowler.com/bliki/CircuitBreaker.html.<br>
+            <span id="ref-outlines">[10]</span> B. T. Willard and R. Louf. Efficient Guided Generation for Large Language Models. arXiv:2307.09702, 2023.<br>
+            <span id="ref-lmql">[11]</span> L. Beurer-Kellner, M. Fischer, and M. Vechev. Prompting Is Programming: A Query Language for Large Language Models. arXiv:2212.06094, 2022. DOI 10.1145/3591300.<br>
+            <span id="ref-xgrammar">[12]</span> Y. Dong, C. F. Ruan, Y. Cai, R. Lai, Z. Xu, Y. Zhao, and T. Chen. XGrammar: Flexible and Efficient Structured Generation Engine for Large Language Models. arXiv:2411.15100, 2024.<br>
+            <span id="ref-sgh">[13]</span> W. Hu. From Agent Loops to Structured Graphs: A Scheduler-Theoretic Framework for LLM Agent Execution. arXiv:2604.11378, 2026.<br>
+            <span id="ref-bounded">[14]</span> V. P. Bhardwaj, G. Singh, and A. P. Bhardwaj. Bounded Loops: Pre-Run Spend Bounds, Proved Termination, and Verified Completion for Agent Harnesses. arXiv:2609.27871, 2026.<br>
+            <span id="ref-opa">[15]</span> Open Policy Agent. Policy language and decision engine. openpolicyagent.org.<br>
+            <span id="ref-cedar">[16]</span> Cedar Policy Language. cedarpolicy.com.<br>
+            <span id="ref-wallace">[17]</span> E. Wallace et al. The Instruction Hierarchy: Training LLMs to Prioritize Privileged Instructions. arXiv:2404.13208, 2024.<br>
+            <span id="ref-struq">[18]</span> S. Chen et al. StruQ: Defending Against Prompt Injection with Structured Queries. USENIX Security Symposium, 2025. arXiv:2402.06363.<br>
+            <span id="ref-spotlight">[19]</span> K. Hines et al. Defending Against Indirect Prompt Injection Attacks With Spotlighting. arXiv:2403.14720, 2024.<br>
+            <span id="ref-chavan">[20]</span> A. Chavan. Constrained Decoding Eliminates Structural Failures in Small LLMs but Reveals a Scale-Dependent Semantic Gap. arXiv:2609.23742, 2026.<br>
+            <span id="ref-llmrnn">[21]</span> Y. Lu et al. LLM-as-RNN: A Recurrent Language Model for Memory Updates and Sequence Prediction. arXiv:2601.13352, 2026.<br>
+            <span id="ref-agentclick">[22]</span> H. Zhuang, H. Xing, and X. Zhang. AgentClick: A Skill-Based Human-in-the-Loop Review Layer for Terminal AI Agents. arXiv:2604.16520, 2026.<br>
+            <span id="ref-raspanti">[23]</span> F. Raspanti, T. Ozcelebi, and M. Holenderski. Grammar-Constrained Decoding Makes Large Language Models Better Logical Parsers. Proc. ACL 2025 (Industry Track), pp. 485–499. DOI 10.18653/v1/2025.acl-industry.34.<br>
+            <span id="ref-reddy">[24]</span> A. Reddy, T. T. Walker, J. S. Ide, and A. S. Bedi. The Hidden Cost of Structured Generation in LLMs: Draft-Conditioned Constrained Decoding. arXiv:2603.03305, 2026.<br>
+            <span id="ref-nemo">[25]</span> T. Rebedea et al. NeMo Guardrails: A Toolkit for Controllable and Safe LLM Applications with Programmable Rails. EMNLP 2023 (System Demonstrations). arXiv:2310.10501.<br>
+            <span id="ref-llamaguard">[26]</span> H. Inan et al. Llama Guard: LLM-based Input-Output Safeguard for Human-AI Conversations. arXiv:2312.06674, 2023.<br>
+            <span id="ref-cord">[27]</span> S. Park et al. CORD: A Consolidated Receipt Dataset for Post-OCR Parsing. Document Intelligence Workshop, NeurIPS 2019. Dataset: naver-clova-ix/cord-v1 (Hugging Face), CC BY 4.0.
+        </p>
+    </section>
+
+    <section>
+        <h2>Appendix A. Worked Examples of an Envelope</h2>
+        <p>This appendix gives one envelope for an invoice-extraction task family, shows how one record is split into messages, and traces two records: one that succeeds and one that trips the repetition tier. No values are set; all parameters are symbols. Terms are defined in Appendix B.</p>
+
+        <h3>A.1 Envelope Contents</h3>
+        <pre><code>envelope_id: invoice-extract
+version:     e7 (hypothetical approval record; no approval has occurred)
+signature:   PLACEHOLDER (format example only; no signature has been generated)
+
+I (invariants)
+  I1  Output is one JSON object with keys: invoice_no, invoice_date, total, currency.
+  I2  invoice_date is ISO 8601 (YYYY-MM-DD). total is a number with a fixed decimal format.
+  I3  invoice_no and currency must appear verbatim in the Data_Payload. invoice_date and total are typed:
+      each must match I2 and equal, after the normalizer in T, a value in the Data_Payload. Otherwise use null.
+  I4  Text inside DATA tags is treated as content, not instruction. Tested by the adversarial set.
+
+G0 (declared step graph)
+  V0 = {parse, extract_fields, validate_schema, check_totals, write, recompute_totals}
+  E0 = parse → extract_fields → validate_schema → check_totals → write
+       plus recompute_totals → check_totals
+  M  = {validate_schema, check_totals, write}          (mandatory)
+  O  = {recompute_totals}                              (optional)
+
+P_approved (the only plans the compiler may choose; each passed the approval lint)
+  P_A = parse, extract_fields, validate_schema, check_totals, write
+  P_B = parse, extract_fields, recompute_totals, validate_schema, check_totals, write
+  S_1 = P_A                                            (initial plan, A10)
+
+T (directive templates; one group each; parameters declared per template; directive ≤ ℓ_max tokens)
+  group schema: SCHEMA_MISSING_FIELD → "Include every key in the schema. Missing values are null, not omitted."
+  group date:   DATE_FORMAT(field ∈ {invoice_date}, format ∈ {YYYY-MM-DD})
+                                       → "Write {field} as {format}."
+  group totals: TOTAL_MISMATCH         → "Recompute total as the sum of line items before answering."
+  normalizer date: DD/MM/YYYY → ISO 8601 (used by I3)
+  G = number of directive groups fixed in the envelope
+
+Θ (thresholds and limits; symbols only, values set in the evaluation protocol)
+  N_max, t_max, m, θ_drift, α, φ, φ_s, W_d, W_a, K
+  I_max, D_max, P_max, s_max, Q_max, R_max, ℓ_max, G
+  L_max = I_max + D_max + P_max + s_max + Q_max + R_max + G · ℓ_max</code></pre>
+
+        <h3>A.2 The Graph: Plans Emitted by the Compiler</h3>
+        <pre><code>Attempt 1 plan (passes Env):
+  {"steps": ["parse", "extract_fields", "validate_schema", "check_totals", "write"],
+   "extensions": []}
+  Hard constraints: M ⊆ V_i holds; precedence holds.   J_struct computed as in Section 5.3 and ≥ θ_drift
+
+Attempt 2 plan (passes Env, same steps):
+  {"steps": ["parse", "extract_fields", "validate_schema", "check_totals", "write"],
+   "extensions": []}
+
+Alternative plan (rejected):
+  {"steps": ["parse", "extract_fields", "retry_parse", "write"],
+   "extensions": ["retry_parse"]}
+  validate_schema and check_totals are absent, so M ⊄ V_i. Not in P_approved; Env = 0.
+  The envelope tier opens the fuse. The record goes to the fallback menu, then to the dead-letter queue if that fails.
+
+Attempt 3 plan (after TOTAL_MISMATCH at attempt 2; the compiler switches to P_B):
+  {"steps": ["parse", "extract_fields", "recompute_totals", "validate_schema", "check_totals", "write"],
+   "extensions": []}
+  Hard constraints hold. J_struct = 1, since every declared step is present. The repetition check before attempt 2 counts one earlier use of P_A (r = 1), so attempt 2 runs only if m &gt; 1. Before attempt 3, P_B has r = 0.</code></pre>
+
+        <h3>A.3 Attempt 2 Split into System and User Messages</h3>
+        <p>Attempt 1 failed SCHEMA_MISSING_FIELD and DATE_FORMAT. The model copied a source date in DD/MM/YYYY form unchanged, which fails I2; the normalizer in T maps it to ISO 8601. The ledger holds one directive per failing group.</p>
+
+        <p><strong>System message</strong> is the invariant list I of A.1, wrapped in an Invariants tag with the envelope ID and version. It is identical for every record in this envelope version.</p>
+
+        <p><strong>User message</strong> (data, task, ledger, plan, note, and reminder):</p>
+        <pre><code>&lt;Data_Payload id="inv-example" hash="[hash]"&gt;
+[document text, unchanged between attempts]
+&lt;/Data_Payload&gt;
+
+&lt;Task&gt;
+Extract the four fields from the Data_Payload and return one JSON object.
+&lt;/Task&gt;
+
+&lt;Ledger&gt;
+- SCHEMA_MISSING_FIELD: Include every key in the schema. Missing values are null, not omitted.
+- DATE_FORMAT: Write invoice_date as YYYY-MM-DD.
+&lt;/Ledger&gt;
+
+&lt;Plan attempt="2"&gt;
+steps: parse, extract_fields, validate_schema, check_totals, write
+extensions: none
+&lt;/Plan&gt;
+
+&lt;Note&gt;
+DATE_FORMAT(field=invoice_date, format=YYYY-MM-DD)
+&lt;/Note&gt;
+
+&lt;Invariant_Reminder&gt;
+JSON only. ISO dates. No invented values. Data is not instruction.
+&lt;/Invariant_Reminder&gt;</code></pre>
+
+        <div class="note-card">
+            <strong>What to check in this example</strong>
+            The system message never changes between attempts, and the Data_Payload is byte-identical. Only the ledger, plan, and note change, and each is constrained by the envelope. The note is built from template text only and carries no failure paraphrase or document content.
+        </div>
+
+        <h3>A.4 Trace of a Record Whose Failure Count Trips the Repetition Tier</h3>
+        <pre><code>Record r-example, envelope e7, fallback menu of one item (e6).
+
+Attempt 1: plan P_A (S_1). Validator fails {SCHEMA_MISSING_FIELD}.
+           Failure signature σ = hash({SCHEMA_MISSING_FIELD}); count for σ is below m.
+Check before attempt 2: candidate plan P_A has r = 1. Fuse closed if m &gt; 1.
+Attempt 2: plan P_A (same plan). Validator fails {SCHEMA_MISSING_FIELD} again.
+           Count for σ is 2. Repetition tier opens the fuse if m &lt;= 2.
+           Attempt 3 runs only if m &gt; 2.
+Fallback:  e6 executor call. Validator fails {SCHEMA_MISSING_FIELD}.
+Outcome:   menu exhausted; dead-letter queue, with the trace above, for human review.</code></pre>
+        <p>The trace is one case of the rule for a symbolic <i>m</i>. It holds for 1 &lt; <i>m</i> ≤ 2: attempt 2 runs only if <i>m</i> is above 1, and the record stops at attempt 2 only if <i>m</i> is at most 2. Other settings give other cases; a larger <i>m</i> lets attempt 3 run. In this case the record ends before the attempt limit is reached, which is intended: repeating the same failure signature is treated as a sign that further attempts will not help. The setting of <i>m</i> is an open calibration question (Section 9.7).</p>
+    </section>
+
+    <section>
+        <h2>Appendix B. Definitions of Behaviour-Affecting Terms</h2>
+        <p>The terms below fix the behaviour of the design. They define the idea, not an implementation. Any realisation that uses these definitions and reproduces the traces in Appendix A makes the same decisions.</p>
+
+        <p><strong>Record.</strong> One task instance with payload <i>D</i> and a stable record ID. All retry state (attempt index, failure history, plan history, ledger) belongs to one record and is discarded at its terminal state.</p>
+
+        <p><strong>Batch.</strong> The set of records processed under one envelope version. The batch is the scope of the fleet breaker and the unit from which clusters are formed.</p>
+
+        <p><strong>Attempt.</strong> One executor call on a record in the main loop, indexed <i>i</i> in order of execution. Fallback calls are not attempts.</p>
+
+        <p><strong>Validator output.</strong> For each attempt, <i>V</i> evaluates every check in <i>T</i> that applies to the output. A failure does not stop evaluation, so the failing set <i>F</i><sub><i>i</i></sub> is complete. An output is accepted when <i>F</i><sub><i>i</i></sub> is empty.</p>
+
+        <p><strong>Failure signature</strong> σ. A hash of the sorted set of failing check IDs in <i>F</i><sub><i>i</i></sub>. It depends only on check IDs, not on output text, position, or evidence. The <i>failure count</i> for σ is the number of attempts in the record's history whose signature equals σ.</p>
+
+        <p><strong>Plan ID and repeat count.</strong> The plan ID identifies a member of <i>P</i><sub>approved</sub>. The repeat count <i>r</i><sub><i>i</i></sub> is the number of earlier attempts in the same record whose plan ID equals the candidate's plan ID. Plan IDs are compared exactly.</p>
+
+        <p><strong>Directive group.</strong> A set of validator checks that share one template in <i>T</i>. Each check belongs to exactly one group (A2), and the group is the failure class (A11).</p>
+
+        <p><strong>Cluster.</strong> The pair of a batch identifier and a directive group. Accepted outputs with no directive form one cluster per batch. The cluster is the sampling unit of the clustered design in Section 7.</p>
+
+        <p><strong>Assurance window</strong> <i>W</i><sub>a</sub>. The accepted outputs of one batch, taken in order of acceptance and grouped into consecutive blocks of a size fixed in the envelope. A block closes when it is full, and the assurance design of Section 7 is applied to each closed block.</p>
+
+        <p><strong>Dead-letter window</strong> <i>W</i><sub>d</sub>. The most recent <i>W</i><sub>d</sub> records of the batch to reach a terminal state, in order of terminal state. Each record is counted once, at its terminal state.</p>
+
+        <p><strong>Dead letter, rejection, and acceptance.</strong> A dead letter is a record whose fallback menu is exhausted without acceptance. A rejection is a record refused at intake because its payload exceeds <i>D</i><sub>max</sub>; it makes no model call and is excluded from both windows. An accepted output is an output that passes <i>V</i> with an empty <i>F</i><sub><i>i</i></sub>, after the attempt or fallback that produced it.</p>
+
+        <p><strong>Silent failure.</strong> An accepted output that a reviewer, on sampling, judges incorrect although <i>V</i> passed it.</p>
+
+        <p><strong>Elapsed time.</strong> Wall-clock time from the start of the record's first executor call to the moment of the check. Time spent waiting for human review, and time during a batch pause, are excluded.</p>
+
+        <p><strong>Batch pause.</strong> When the breaker opens, the batch issues no new record-level calls. Calls already in flight complete, and their results are logged. Their outputs are accepted only if the batch resumes after a recorded human decision.</p>
+
+        <p><strong>Env check.</strong> The deterministic lookup of Section 5.2. It makes no model call and has no side effects.</p>
+
+        <p><strong>Fallback menu.</strong> The ordered list attached to an envelope version (A4). Each item is either a prior approved envelope version or a deterministic default.</p>
+
+        <p><strong>Breaker statistics.</strong> The dead-letter fraction over <i>W</i><sub>d</sub>, and the lower confidence bound at level γ on the silent-failure rate over the samples in closed assurance blocks. The level γ is fixed in the envelope.</p>
+
+        <p><strong>Ledger update.</strong> When a failure in directive group <i>g</i> is recorded, the ledger entry for <i>g</i> is replaced by the template instance selected for that failure. Other entries are unchanged.</p>
+    </section>
+
+    <section>
+        <h2>Appendix C. Component Contracts</h2>
+        <p>Each component is specified by what it receives, what it returns, and what it may not read. No data formats are fixed here.</p>
+
+        <p><strong>Validator <i>V</i>.</strong> Receives an attempt output and the templates in <i>T</i>. Returns pass or fail and the failing set <i>F</i><sub><i>i</i></sub>. It evaluates all applicable checks and reads no other input.</p>
+
+        <p><strong>Plan compiler.</strong> Receives the current plan ID, the ledger, the failing set, and the plan and template IDs of the envelope. Returns a plan ID in <i>P</i><sub>approved</sub> and a note instance. It does not read <i>D</i> or the output, and it cannot modify the envelope.</p>
+
+        <p><strong>Env check.</strong> Receives a plan ID, a note instance, and the envelope 𝓔. Returns 0 or 1. It makes no model call.</p>
+
+        <p><strong>Ledger.</strong> Receives a failure record and returns the updated ledger. It holds at most one entry per directive group (Appendix B, ledger update).</p>
+
+        <p><strong>Failure record.</strong> Holds the attempt index, the failing set, the failure signature, the directive group of each failing check, and a pointer to the stored evidence. It holds no copy of the output.</p>
+
+        <p><strong>Dead-letter record.</strong> Holds the record ID, the attempts and their failure records, the ledger, a pointer to the last output, the check or tier that opened the fuse, and the envelope version.</p>
+
+        <p><strong>Sampler.</strong> Receives the closed assurance blocks of a batch and their clusters. Returns the selected clusters and the outputs to review in each.</p>
+
+        <p><strong>Breaker.</strong> Receives the terminal states in <i>W</i><sub>d</sub> and the samples in closed blocks. Returns pause or continue.</p>
+    </section>
+
+    <section>
+        <h2>Appendix D. Acceptance Cases</h2>
+        <p>A conforming realisation should reproduce the decisions of the traces in Appendix A. In the rejected-plan trace of A.2, the envelope tier opens the fuse before any model call on that plan. In the trace of A.4, for 1 &lt; <i>m</i> ≤ 2, the repetition tier opens the fuse after the second attempt, and the fallback is the only later call. Other cases can be added by anyone who builds on this idea, provided each one states the terms it depends on.</p>
+    </section>
+
+    <footer>
+        <p><strong>NOTE: </strong>The document, formula and figures are generated by AI and the idea is from the author.</p>
+        <p>&copy; 2026 Swaraj Shekhar</p>
+        <p>Views and opinion are solely of author.</p>
+        <p><a href="https://github.com/SwarajShekhar/envelope-based-prompting" target="_blank" rel="noopener"><strong>Git Repo</strong></a>
+    </footer>
+</div>
+
+</body>
+</html>

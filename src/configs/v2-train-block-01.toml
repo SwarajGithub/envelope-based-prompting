@@ -1,0 +1,18 @@
+# v2 calibration block 1: first 100 clean train records, all three conditions, 3 seeds.
+# Uses receipt-extract-v2.json: qwen3-8k:latest at 192.168.0.13, num_ctx=8192, temp=0.3.
+# Run from src/:   python -m fenced_retry.cli run --config configs/v2-train-block-01.toml
+
+[run]
+name = "v2-pilot"
+envelope = "envelopes/receipt-extract-v2.json"
+data = "../data/cord"
+split = "train"
+offset = 0
+limit = 100
+conditions = ["controller", "single_shot", "naive_retry"]
+seeds = [0, 1, 2]
+project = "pilot-v2"
+shadow = false
+store_full_text = true
+final = false
+runs_dir = "runs"

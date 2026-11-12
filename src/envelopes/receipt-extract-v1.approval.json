@@ -1,0 +1,9 @@
+{
+  "envelope_id": "receipt-extract",
+  "version": "v1",
+  "envelope_file": "receipt-extract-v1.json",
+  "envelope_hash": "c60d075faafaa06d7c61040d6ac693dcb0f7cd41d935813b5c8d8bf17e330bc5",
+  "approver": "Swaraj",
+  "approved_at_utc": "2026-10-19T02:53:27+00:00",
+  "note": "pilot envelope"
+}

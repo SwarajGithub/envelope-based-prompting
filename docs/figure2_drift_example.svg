@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 350" width="800" height="350" font-family="Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arrow2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#333"/>
+    </marker>
+  </defs>
+  <style>
+    .box{fill:#f4f6f8;stroke:#1a2530;stroke-width:1.2}
+    .mand{fill:#eaf2fb;stroke:#0056b3;stroke-width:2}
+    .ext{fill:#fff8f0;stroke:#c05621;stroke-width:1.5;stroke-dasharray:6 4}
+    .t{font-size:13px;text-anchor:middle;fill:#1a2530}
+    .h{font-size:14px;font-weight:bold;fill:#1a2530}
+    .s{font-size:9px}
+    .e{fill:none;stroke:#333;stroke-width:1.3;marker-end:url(#arrow2)}
+    .m{fill:none;stroke:#888;stroke-width:1.3;stroke-dasharray:4 4}
+    .warn{font-size:13px;fill:#c05621}
+    .l{font-size:12px;fill:#555;font-style:italic}
+  </style>
+
+  <!-- Declared graph G0 -->
+  <text class="h" x="60" y="40">Declared graph G<tspan class="s" dy="4">0</tspan></text>
+  <rect class="box" x="60" y="50" width="150" height="44" rx="6"/>
+  <text class="t" x="135" y="77">parse</text>
+  <rect class="mand" x="250" y="50" width="150" height="44" rx="6"/>
+  <text class="t" x="325" y="77">validate (mandatory)</text>
+  <rect class="box" x="440" y="50" width="150" height="44" rx="6"/>
+  <text class="t" x="515" y="77">transform</text>
+  <rect class="mand" x="630" y="50" width="150" height="44" rx="6"/>
+  <text class="t" x="705" y="77">write (mandatory)</text>
+  <path class="e" d="M210,72 H250"/>
+  <path class="e" d="M400,72 H440"/>
+  <path class="e" d="M590,72 H630"/>
+
+  <!-- Emitted plan Pi -->
+  <text class="h" x="60" y="170">Emitted plan P<tspan class="s" dy="4">i</tspan></text>
+  <rect class="box" x="60" y="180" width="150" height="44" rx="6"/>
+  <text class="t" x="135" y="207">parse</text>
+  <rect class="ext" x="250" y="180" width="150" height="44" rx="6"/>
+  <text class="t" x="325" y="207">fallback (extension)</text>
+  <rect class="box" x="440" y="180" width="150" height="44" rx="6"/>
+  <text class="t" x="515" y="207">write</text>
+  <path class="e" d="M210,202 H250"/>
+  <path class="e" d="M400,202 H440"/>
+
+  <!-- Matched steps -->
+  <path class="m" d="M135,94 V180"/>
+  <path class="m" d="M705,94 L515,180"/>
+  <text class="l" x="330" y="132" text-anchor="middle">matched steps: parse, write</text>
+
+  <!-- Result -->
+  <text class="warn" x="60" y="262">validate (mandatory) is absent: hard constraint fails, tier trips</text>
+  <text class="l" x="60" y="290">Blue: mandatory step. Dashed orange: extension. Dashed grey: matched step.</text>
+  <text x="60" y="318" font-size="15" fill="#1a2530">J<tspan class="s" dy="4">struct</tspan><tspan dy="-4"> = |V</tspan><tspan class="s" dy="4">i</tspan><tspan dy="-4"> ∩ V</tspan><tspan class="s" dy="4">0</tspan><tspan dy="-4">| / |V</tspan><tspan class="s" dy="4">i</tspan><tspan dy="-4"> ∪ V</tspan><tspan class="s" dy="4">0</tspan><tspan dy="-4">| = 2 / 5 = 0.40</tspan></text>
+</svg>
